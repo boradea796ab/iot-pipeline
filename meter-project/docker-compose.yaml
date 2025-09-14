@@ -11,6 +11,7 @@ services:
       - "8000:8000"
     depends_on:
       - redis
+      - postgres
     environment:
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
@@ -27,6 +28,21 @@ services:
     depends_on:
       - redis
       - web
+      - postgres
     environment:
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
+
+  postgres:
+    image: postgres:15                # runs Postgres 13 container
+    environment:
+      POSTGRES_USER: meter            # creates a DB user "meter"
+      POSTGRES_PASSWORD: meterpass    # password for "meter"
+      POSTGRES_DB: meterdb            # creates a default DB "meterdb"
+    ports:
+      - "5432:5432"                   # exposes DB on host port 5432
+    volumes:
+      - postgres_data:/var/lib/postgresql/data   # persistent volume
+
+volumes:
+  postgres_data:   # named volume for persistence

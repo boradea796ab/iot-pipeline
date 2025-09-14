@@ -1,3 +1,11 @@
 from django.db import models
 
-# Create your models here.
+class Reading(models.Model):
+    meter_id = models.IntegerField()
+    timestamp = models.DateTimeField()
+    value = models.FloatField()
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["meter_id", "timestamp"]),
+        ]

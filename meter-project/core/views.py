@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from django.http import JsonResponse
 from core.tasks import hello_world
-from .simulator import simulate_readings
+from .simulator import simulate_readings, simulate_msgs
 from .models import Reading
 
 def celery_test(request):
@@ -19,6 +19,11 @@ def simulate(request):
     
     simulate_readings(num_meters=meters, interval_minutes=interval, days=days)
     return JsonResponse({"status": "started", "meters": meters, "interval": interval})
+
+def simulate_hello(request):
+    num_calls = int(request.GET.get("calls", 1000))
+    simulate_msgs(num_calls=num_calls)
+    return JsonResponse({"status": "started", "calls": num_calls})
 
 
 def readings(request, meter_id):

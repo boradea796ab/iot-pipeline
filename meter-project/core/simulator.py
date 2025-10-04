@@ -1,5 +1,5 @@
 import random, datetime
-from .tasks import ingest_reading
+from .tasks import ingest_reading, hello_world
 
 def simulate_readings(num_meters=1000, interval_minutes=30, days=1):
     now = datetime.datetime.utcnow().replace(minute=0, second=0, microsecond=0)
@@ -10,3 +10,7 @@ def simulate_readings(num_meters=1000, interval_minutes=30, days=1):
             ts = now - datetime.timedelta(minutes=i*interval_minutes)
             value = round(random.uniform(0.1, 2.0), 3)
             ingest_reading.delay(meter_id, ts.isoformat(), value)
+
+def simulate_msgs(num_calls=1000):
+    for i in range(num_calls):
+        hello_world.delay(i)

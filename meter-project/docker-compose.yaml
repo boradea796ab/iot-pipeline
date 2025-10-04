@@ -21,7 +21,9 @@ services:
 
   celery:
     build: .
-    command: celery -A app worker -l info
+    command: celery -A app worker -l info -P threads --concurrency=500
+    # command: celery -A app worker -l info -P eventlet --concurrency=500
+    # command: celery -A app worker -l info
     working_dir: /app
     volumes:
       - .:/app
@@ -43,6 +45,51 @@ services:
       - "5432:5432"                   # exposes DB on host port 5432
     volumes:
       - postgres_data:/var/lib/postgresql/data   # persistent volume
+
+  # prometheus:
+  #   image: prom/prometheus
+  #   volumes:
+  #     - ./prometheus.yml:/etc/prometheus/prometheus.yml
+  #   ports:
+  #     - "9090:9090"
+
+  # grafana:
+  #   image: grafana/grafana
+  #   ports:
+  #     - "3000:3000"
+
+  # redis-exporter:
+  #   image: oliver006/redis_exporter
+  #   ports:
+  #     - "9121:9121"
+  #   depends_on:
+  #     - redis
+
+  # postgres-exporter:
+  #   image: prometheuscommunity/postgres-exporter
+  #   environment:
+  #     DATA_SOURCE_NAME: "postgresql://meter:meterpass@postgres:5432/meterdb?sslmode=disable"
+  #   ports:
+  #     - "9187:9187"
+  #   depends_on:
+  #     - postgres
+
+  flower:
+    build: .                     # 👈 use the same Dockerfile as your Django/Celery app
+    command: celery -A app flower --port=5555
+    working_dir: /app
+    volumes:
+      - .:/app                   # mount your project code
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    ports:
+      - "5555:5555"
+    depends_on:
+      - redis
+      - celery
+
+
 
 volumes:
   postgres_data:   # named volume for persistence

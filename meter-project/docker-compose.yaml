@@ -18,12 +18,15 @@ services:
 
   redis:
     image: redis:7-alpine
+    mem_limit: 512m
 
   celery:
     build: .
-    command: celery -A app worker -l info -P threads --concurrency=500
-    # command: celery -A app worker -l info -P eventlet --concurrency=500
+    command: celery -A app worker -l info -P eventlet --concurrency=500
+    # command: celery -A app worker -l info -P eventlet --concurrency=50 -O fair
     # command: celery -A app worker -l info
+    mem_limit: 2g
+    restart: always
     working_dir: /app
     volumes:
       - .:/app
@@ -45,6 +48,7 @@ services:
       - "5432:5432"                   # exposes DB on host port 5432
     volumes:
       - postgres_data:/var/lib/postgresql/data   # persistent volume
+    mem_limit: 1g
 
   # prometheus:
   #   image: prom/prometheus

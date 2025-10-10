@@ -24,16 +24,6 @@ FLUSH_INTERVAL = 5     # seconds between idle checks
 # ---------------------------------------------------------------------
 r = redis.StrictRedis.from_url(REDIS_URL, decode_responses=True)
 
-# ---------------------------------------------------------------------
-# PRODUCER TASK
-# ---------------------------------------------------------------------
-@shared_task(queue="enqueue")
-def enqueue_reading(meter_id, timestamp, value):
-    """Lightweight producer: pushes JSON payload to Redis list."""
-    payload = json.dumps({"meter_id": meter_id, "timestamp": timestamp, "value": value})
-    r.rpush(REDIS_KEY, payload)
-    return "enqueued"
-
 
 # ---------------------------------------------------------------------
 # CONSUMER TASK
@@ -93,12 +83,20 @@ def hello_world(n):
     time.sleep(0.01)  # tiny delay so you can observe usage better
     return n
 
-@shared_task
+# ---------------------------------------------------------------------
+# PRODUCER TASK
+# ---------------------------------------------------------------------
+
+@shared_task(queue="enqueue")
 def simulate_readings_task(num_meters, interval_minutes, days):
+    pipe = r.pipeline(transaction=False)
     now = datetime.datetime.utcnow().replace(minute=0, second=0, microsecond=0)
     readings_per_meter = int((24*60*days)/interval_minutes)
+
     for meter_id in range(1, num_meters+1):
         for i in range(readings_per_meter):
             ts = now - datetime.timedelta(minutes=i*interval_minutes)
             value = round(random.uniform(0.1, 2.0), 3)
-            enqueue_reading.delay(meter_id, ts.isoformat(), value)
+            payload = json.dumps({"meter_id": meter_id, "timestamp": ts.isoformat(), "value": value})
+            pipe.rpush(REDIS_KEY, payload)
+    pipe.execute()

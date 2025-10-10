@@ -20,13 +20,13 @@ services:
     image: redis:7-alpine
     mem_limit: 512m
 
-  celery:
+
+  # -------------------------------------------------------------------
+  # Celery Worker (producer)
+  # -------------------------------------------------------------------
+  celery_enqueue:
     build: .
-    command: celery -A app worker -l info -P eventlet --concurrency=500
-    # command: celery -A app worker -l info -P eventlet --concurrency=50 -O fair
-    # command: celery -A app worker -l info
-    mem_limit: 2g
-    restart: always
+    command: celery -A app worker -Q enqueue -P eventlet --concurrency=200 -l info
     working_dir: /app
     volumes:
       - .:/app
@@ -34,9 +34,24 @@ services:
       - redis
       - web
       - postgres
+    restart: always
+
+  # -------------------------------------------------------------------
+  # Celery Worker (batch flusher)
+  # -------------------------------------------------------------------
+  celery_flush:
+    build: .
     environment:
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - CELERY_QUEUE_NAME=flush
+    command: celery -A app worker -Q flush --concurrency=2 -O fair -l info
+    working_dir: /app
+    volumes:
+      - .:/app
+    depends_on:
+      - redis
+      - web
+      - postgres
+    restart: always
 
   postgres:
     image: postgres:15                # runs Postgres 13 container
@@ -50,49 +65,15 @@ services:
       - postgres_data:/var/lib/postgresql/data   # persistent volume
     mem_limit: 1g
 
-  # prometheus:
-  #   image: prom/prometheus
-  #   volumes:
-  #     - ./prometheus.yml:/etc/prometheus/prometheus.yml
-  #   ports:
-  #     - "9090:9090"
-
-  # grafana:
-  #   image: grafana/grafana
-  #   ports:
-  #     - "3000:3000"
-
-  # redis-exporter:
-  #   image: oliver006/redis_exporter
-  #   ports:
-  #     - "9121:9121"
-  #   depends_on:
-  #     - redis
-
-  # postgres-exporter:
-  #   image: prometheuscommunity/postgres-exporter
-  #   environment:
-  #     DATA_SOURCE_NAME: "postgresql://meter:meterpass@postgres:5432/meterdb?sslmode=disable"
-  #   ports:
-  #     - "9187:9187"
-  #   depends_on:
-  #     - postgres
-
   flower:
-    build: .                     # 👈 use the same Dockerfile as your Django/Celery app
+    build: .
     command: celery -A app flower --port=5555
-    working_dir: /app
-    volumes:
-      - .:/app                   # mount your project code
-    environment:
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
     ports:
       - "5555:5555"
     depends_on:
       - redis
-      - celery
-
+      - web
+    restart: always
 
 
 volumes:

@@ -126,3 +126,14 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 APPEND_SLASH = False
+
+CELERY_BROKER_URL = "redis://redis:6379/0"
+REDIS_URL = "redis://redis:6379/1"
+CELERY_RESULT_BACKEND = "redis://redis:6379/2"
+
+CELERY_TASK_QUEUES = {
+    "enqueue": {"exchange": "enqueue", "routing_key": "enqueue"},
+    "flush": {"exchange": "flush", "routing_key": "flush"},
+}
+
+CELERY_TASK_DEFAULT_QUEUE = "enqueue"

@@ -28,49 +28,38 @@ r = redis.StrictRedis.from_url(REDIS_URL, decode_responses=True)
 # ---------------------------------------------------------------------
 # CONSUMER TASK
 # ---------------------------------------------------------------------
-@shared_task(queue="flush", bind=True, max_retries=None)
+@shared_task(queue="flush", bind=True)
 def batch_flush_readings(self):
-    """
-    Long-running consumer that drains Redis in batches and writes to DB.
-    Should be run in its own dedicated Celery worker (concurrency=1).
-    """
     print("[CONSUMER] Started batch_flush_readings worker")
+    buffer = []
+    last_flush = time.time()
 
     while True:
-        batch = []
+        try:
+            # Wait for next reading wirth blocking pop (idle ≤ BLOCK_TIMEOUT)
+            item = r.blpop(REDIS_KEY, timeout=BLOCK_TIMEOUT)
+            if item:
+                buffer.append(json.loads(item[1]))
 
-        # Acquire distributed lock (only one consumer active at a time)
-        with r.lock(LOCK_KEY, timeout=LOCK_TTL, blocking_timeout=1) as lock:
-            if not lock.locked():
-                time.sleep(1)
-                continue
+            # Flush if batch full or flush interval reached
+            if len(buffer) >= BATCH_SIZE or (buffer and time.time() - last_flush >= FLUSH_INTERVAL):
+                flush_to_db(buffer)
+                last_flush = time.time()
+                buffer.clear()
+        except Exception as e:
+            print(f"[BATCH ERROR] {e}")
+            time.sleep(2)
 
-            # Drain up to BATCH_SIZE items
-            for _ in range(BATCH_SIZE):
-                data = r.lpop(REDIS_KEY)
-                if not data:
-                    break
-                batch.append(json.loads(data))
 
-            if not batch:
-                time.sleep(FLUSH_INTERVAL)
-                continue
-
-            try:
-                close_old_connections()  # avoid stale DB connections
-                with transaction.atomic():
-                    Reading.objects.bulk_create(
-                        [Reading(**d) for d in batch],
-                        batch_size=BATCH_SIZE,
-                        ignore_conflicts=True,  # prevent duplicates
-                    )
-                print(f"[BATCH INSERT] Inserted {len(batch)} readings.")
-            except Exception as e:
-                # Push failed batch back for retry
-                for d in batch:
-                    r.lpush(REDIS_KEY, json.dumps(d))
-                print(f"[BATCH ERROR] {e}. Requeued {len(batch)} readings.")
-                time.sleep(2)
+def flush_to_db(batch):
+    close_old_connections()
+    with transaction.atomic():
+        Reading.objects.bulk_create(
+            [Reading(**d) for d in batch],
+            batch_size=len(batch),
+            ignore_conflicts=True,
+        )
+    print(f"[BATCH INSERT] Inserted {len(batch)} readings")
 
 
 @shared_task

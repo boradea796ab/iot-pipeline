@@ -12,4 +12,4 @@ app.autodiscover_tasks()
 def start_consumer(sender=None, **kwargs):
     import os
     if os.environ.get("CELERY_QUEUE_NAME") == "flush":
-        sender.app.send_task("core.tasks.batch_flush_readings", queue="flush")
+        sender.app.send_task("core.tasks.consumer.batch_flush_readings", queue="flush")

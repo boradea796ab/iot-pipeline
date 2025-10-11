@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -127,8 +128,13 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 APPEND_SLASH = False
 
+# Redis / batch settings
+REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
+READING_BUFFER_KEY = os.getenv("READING_BUFFER_KEY", "reading_buffer")
+READING_BATCH_SIZE = int(os.getenv("READING_BATCH_SIZE", "100"))
+REDIS_BLOCK_TIMEOUT = int(os.getenv("REDIS_BLOCK_TIMEOUT", "5"))
+FLUSH_INTERVAL = int(os.getenv("FLUSH_INTERVAL", "5"))
 CELERY_BROKER_URL = "redis://redis:6379/0"
-REDIS_URL = "redis://redis:6379/1"
 CELERY_RESULT_BACKEND = "redis://redis:6379/2"
 
 CELERY_TASK_QUEUES = {

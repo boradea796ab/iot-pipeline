@@ -11,3 +11,14 @@ terraform {
 provider "aws" {
     region = var.region
 }
+
+module "api_gateway" {
+  source      = "./modules/api_gateway"
+  api_name    = "iot-ingestion-api"
+  description = "Mock API Gateway for /health endpoint"
+  stage_name  = "prod"
+}
+
+output "api_base_url" {
+  value = module.api_gateway.api_base_url
+}

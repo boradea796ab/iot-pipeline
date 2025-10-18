@@ -19,6 +19,7 @@ module "api_gateway" {
   stage_name  = "prod"
 }
 
-output "api_base_url" {
-  value = module.api_gateway.api_base_url
+module "sqs" {
+  source = "./modules/sqs"
+  queue_name = "hellow_queue"
 }

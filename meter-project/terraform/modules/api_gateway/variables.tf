@@ -9,3 +9,12 @@ variable "stage_name" {
   type        = string
   default     = "prod"
 }
+
+variable "region" {
+  type = string
+  default = "ap-northeast-1"
+}
+
+variable "queue_arn" {}
+variable "queue_name" {}
+variable "queue_url" {}

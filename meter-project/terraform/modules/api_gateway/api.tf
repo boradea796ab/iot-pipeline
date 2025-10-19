@@ -11,3 +11,9 @@ resource "aws_api_gateway_resource" "health" {
     parent_id = aws_api_gateway_rest_api.iot_api.root_resource_id
     path_part = "health"
 }
+
+resource "aws_api_gateway_resource" "ingest" {
+  rest_api_id = aws_api_gateway_rest_api.iot_api.id
+  parent_id   = aws_api_gateway_rest_api.iot_api.root_resource_id
+  path_part   = "ingest"
+}

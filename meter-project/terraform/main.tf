@@ -27,3 +27,8 @@ module "sqs" {
   source = "./modules/sqs"
   queue_name = "hellow_queue"
 }
+
+module "lambda" {
+  source = "./modules/lambda_consumer"
+  sqs_arn =  module.sqs.sqs_arn
+}

@@ -22,6 +22,7 @@ resource "aws_api_gateway_method" "ingest_post" {
     resource_id = aws_api_gateway_resource.ingest.id
     http_method = "POST"
     authorization = "NONE"
+    api_key_required = true   # ✅ added line
 }
 
 resource "aws_api_gateway_method_response" "ingest_200" {

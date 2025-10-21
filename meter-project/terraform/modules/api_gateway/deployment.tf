@@ -1,4 +1,4 @@
-resource "aws_api_gateway_deployment" "hello_deploy" {
+resource "aws_api_gateway_deployment" "iot_deploy" {
   rest_api_id = aws_api_gateway_rest_api.iot_api.id
   depends_on = [
     aws_api_gateway_integration.health_mock,
@@ -13,6 +13,28 @@ resource "aws_api_gateway_deployment" "hello_deploy" {
 
 resource "aws_api_gateway_stage" "prod" {
   rest_api_id   = aws_api_gateway_rest_api.iot_api.id
-  deployment_id = aws_api_gateway_deployment.hello_deploy.id
+  deployment_id = aws_api_gateway_deployment.iot_deploy.id
   stage_name    = var.stage_name
+
+  access_log_settings {
+    destination_arn = aws_cloudwatch_log_group.apigw_logs.arn
+    format = jsonencode({
+      requestId           = "$context.requestId",
+      ip                  = "$context.identity.sourceIp",
+      caller              = "$context.identity.caller",
+      user                = "$context.identity.user",
+      requestTime         = "$context.requestTime",
+      httpMethod          = "$context.httpMethod",
+      resourcePath        = "$context.resourcePath",
+      status              = "$context.status",
+      protocol            = "$context.protocol",
+      responseLength      = "$context.responseLength",
+      integrationLatency  = "$context.integrationLatency",
+      errorMessage        = "$context.error.message",
+      integrationError    = "$context.integration.error",
+      integrationStatus   = "$context.integration.status"
+    })
+  }
+
+  depends_on = [aws_cloudwatch_log_group.apigw_logs]
 }

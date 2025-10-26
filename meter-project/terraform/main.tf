@@ -18,9 +18,7 @@ module "api_gateway" {
   description = "Mock API Gateway for /health endpoint"
   stage_name  = "prod"
 
-  queue_arn       = module.sqs.sqs_arn
   queue_name      = module.sqs.sqs_name
-  queue_url       = module.sqs.sqs_url
 }
 
 module "sqs" {

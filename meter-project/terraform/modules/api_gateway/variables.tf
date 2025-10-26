@@ -15,6 +15,4 @@ variable "region" {
   default = "ap-northeast-1"
 }
 
-variable "queue_arn" {}
 variable "queue_name" {}
-variable "queue_url" {}

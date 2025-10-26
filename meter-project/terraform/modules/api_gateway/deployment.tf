@@ -7,7 +7,7 @@ resource "aws_api_gateway_deployment" "iot_deploy" {
     aws_api_gateway_integration_response.ingest_200_integration
   ]
 
-  description = "SQS integration deployment"
+  description = "SQS integration deployment with updated IAM new"
 }
 
 

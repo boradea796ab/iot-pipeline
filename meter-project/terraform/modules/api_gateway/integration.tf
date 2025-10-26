@@ -47,12 +47,11 @@ resource "aws_api_gateway_integration" "ingest_post" {
   request_parameters = {
     "integration.request.header.Content-Type" = "'application/x-www-form-urlencoded'"
   }
+  cache_key_parameters = ["integration.request.header.Content-Type"]
 
   # JSON → form-encoded transformation
   request_templates = {
-        "application/json" = <<EOF
-    Action=SendMessage&MessageBody=$input.body
-    EOF
+    "application/json" = "Action=SendMessage&MessageBody=$input.body"
   }
 }
 

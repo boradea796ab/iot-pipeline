@@ -7,6 +7,16 @@ resource "aws_api_gateway_deployment" "iot_deploy" {
     aws_api_gateway_integration_response.ingest_200_integration
   ]
 
+  triggers = {
+    redeployment = sha1(jsonencode({
+      token = var.force_redeploy_token
+    }))
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+
   description = "SQS integration deployment with updated IAM new"
 }
 
@@ -37,4 +47,15 @@ resource "aws_api_gateway_stage" "prod" {
   }
 
   depends_on = [aws_cloudwatch_log_group.apigw_logs]
+}
+
+resource "aws_api_gateway_method_settings" "example" {
+  rest_api_id = aws_api_gateway_rest_api.iot_api.id
+  stage_name  = aws_api_gateway_stage.prod.stage_name
+  method_path = "*/*"
+
+  settings {
+    metrics_enabled = true
+    logging_level   = "INFO"
+  }
 }

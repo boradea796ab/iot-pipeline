@@ -72,3 +72,8 @@ aws logs tail /aws/lambda/iot-consumer --follow
 
 ## Notes
 - Redeploy the API (`terraform apply`) whenever you change integrations or API key bindings so the stage picks up the latest configuration.
+
+## Reference for APIGateway SQS integration
+
+- AWS Documentation:https://docs.aws.amazon.com/prescriptive-guidance/latest/patterns/integrate-amazon-api-gateway-with-amazon-sqs-to-handle-asynchronous-rest-apis.html
+

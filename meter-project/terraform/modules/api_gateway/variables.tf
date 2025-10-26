@@ -16,3 +16,8 @@ variable "region" {
 }
 
 variable "queue_name" {}
+
+variable "force_redeploy_token" {
+  type    = string
+  default = "deploy-apigw-logging"
+}

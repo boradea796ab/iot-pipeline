@@ -23,6 +23,11 @@ resource "aws_api_gateway_method" "ingest_post" {
     http_method = "POST"
     authorization = "NONE"
     api_key_required = true   # ✅ added line
+    request_validator_id = aws_api_gateway_request_validator.body_validator.id
+
+    request_models = {
+      "application/json" = aws_api_gateway_model.iot_reading_model.name
+    }    
 }
 
 resource "aws_api_gateway_method_response" "ingest_200" {

@@ -27,12 +27,12 @@ resource "aws_api_gateway_usage_plan" "iot_usage_plan" {
   description = "Usage plan for IoT ingestion clients"
 
   throttle_settings {
-    burst_limit = 5      # how many requests in a quick burst
-    rate_limit  = 2      # steady-state requests per second
+    burst_limit = 5 # how many requests in a quick burst
+    rate_limit  = 2 # steady-state requests per second
   }
 
   quota_settings {
-    limit  = 1000        # total requests per day
+    limit  = 1000 # total requests per day
     period = "DAY"
   }
 
@@ -60,9 +60,9 @@ resource "aws_api_gateway_method_settings" "require_key_ingest" {
   method_path = "/ingest/POST"
 
   settings {
-    metrics_enabled = true
-    logging_level   = "INFO"
-    data_trace_enabled = false
+    metrics_enabled        = true
+    logging_level          = "INFO"
+    data_trace_enabled     = false
     throttling_burst_limit = 5
     throttling_rate_limit  = 2
   }

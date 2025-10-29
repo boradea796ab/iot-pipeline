@@ -29,20 +29,20 @@ resource "aws_api_gateway_stage" "prod" {
   access_log_settings {
     destination_arn = aws_cloudwatch_log_group.apigw_logs.arn
     format = jsonencode({
-      requestId           = "$context.requestId",
-      ip                  = "$context.identity.sourceIp",
-      caller              = "$context.identity.caller",
-      user                = "$context.identity.user",
-      requestTime         = "$context.requestTime",
-      httpMethod          = "$context.httpMethod",
-      resourcePath        = "$context.resourcePath",
-      status              = "$context.status",
-      protocol            = "$context.protocol",
-      responseLength      = "$context.responseLength",
-      integrationLatency  = "$context.integrationLatency",
-      errorMessage        = "$context.error.message",
-      integrationError    = "$context.integration.error",
-      integrationStatus   = "$context.integration.status"
+      requestId          = "$context.requestId",
+      ip                 = "$context.identity.sourceIp",
+      caller             = "$context.identity.caller",
+      user               = "$context.identity.user",
+      requestTime        = "$context.requestTime",
+      httpMethod         = "$context.httpMethod",
+      resourcePath       = "$context.resourcePath",
+      status             = "$context.status",
+      protocol           = "$context.protocol",
+      responseLength     = "$context.responseLength",
+      integrationLatency = "$context.integrationLatency",
+      errorMessage       = "$context.error.message",
+      integrationError   = "$context.integration.error",
+      integrationStatus  = "$context.integration.status"
     })
   }
 

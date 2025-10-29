@@ -1,33 +1,38 @@
 terraform {
-    required_version = ">= 1.6.0"
-    required_providers {
-        aws = {
-            source = "hashicorp/aws"
-            version = "~> 5.0"
-        }
+  required_version = ">= 1.6.0"
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
     }
+  }
 }
 
 provider "aws" {
-    region = var.region
+  region = var.region
 }
 
 module "api_gateway" {
-  source      = "./modules/api_gateway"
-  api_name    = "iot-ingestion-api"
-  description = "Mock API Gateway for /health endpoint"
-  stage_name  = "prod"
-  force_redeploy_token="api-validator-commit"
+  source               = "./modules/api_gateway"
+  api_name             = "iot-ingestion-api"
+  description          = "HMAC-based Lambda Authorizer"
+  stage_name           = "prod"
+  force_redeploy_token = "api-validator-redeploy-06"
 
-  queue_name      = module.sqs.sqs_name
+  queue_name                     = module.sqs.sqs_name
+  device_secret_parameter_prefix = var.device_secret_parameter_prefix
+  device_secret_parameters = {
+    M001 = "/iot/device/M001/secret"
+    M002 = "/iot/device/M002/secret"
+  }
 }
 
 module "sqs" {
-  source = "./modules/sqs"
+  source     = "./modules/sqs"
   queue_name = "hellow_queue"
 }
 
 module "lambda" {
-  source = "./modules/lambda_consumer"
-  sqs_arn =  module.sqs.sqs_arn
+  source  = "./modules/lambda_consumer"
+  sqs_arn = module.sqs.sqs_arn
 }

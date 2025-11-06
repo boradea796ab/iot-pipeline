@@ -35,4 +35,6 @@ module "sqs" {
 module "lambda" {
   source  = "./modules/lambda_consumer"
   sqs_arn = module.sqs.sqs_arn
+  dlq_sqs_arn = module.sqs.dlq_sqs_arn
+  dlq_id = module.sqs.dlq_id
 }

@@ -11,3 +11,13 @@ output "sqs_arn" {
 output "sqs_name" {
   value = aws_sqs_queue.iot_queue.name
 }
+
+output "dlq_sqs_arn" {
+  description = "ARN of the IoT SQS DLQ"
+  value       = aws_sqs_queue.iot_dlq.arn
+}
+
+output "dlq_id" {
+  description = "ARN of the IoT SQS DLQ"
+  value       = aws_sqs_queue.iot_dlq.id
+}

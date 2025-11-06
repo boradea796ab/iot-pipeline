@@ -70,10 +70,47 @@ aws logs tail /aws/lambda/iot-consumer --follow
 ```
 - Expected output: Continuous log stream showing message receipt and processing events.
 
+## Sample Signed Ingest Request
+- Description: Example request that includes the required HMAC headers expected by the custom Lambda authorizer.
+- Command:
+```bash
+API_URL="$(terraform output -raw api_base_url)"
+DEVICE_ID="M001"
+TIMESTAMP="20250101T120000Z"
+PAYLOAD='{"meter_id":"M001","timestamp":"2025-01-01T12:00:00Z","reading_value":42.17,"unit":"kWh","meter_type":"SMART_METER"}'
+SIGNATURE="$(python3 - <<'PY'
+import base64, hashlib, hmac, os
+device_id = os.getenv("DEVICE_ID")
+timestamp = os.getenv("TIMESTAMP")
+secret = "supersecret-key-m001"  # replace with secure value stored in SSM
+canonical = f"{device_id}:{timestamp}"
+digest = hmac.new(secret.encode(), canonical.encode(), hashlib.sha256).digest()
+print(base64.b64encode(digest).decode())
+PY
+)"
+
+curl -X POST "${API_URL}prod/ingest" \
+  -H "Content-Type: application/json" \
+  -H "x-device-id: ${DEVICE_ID}" \
+  -H "x-timestamp: ${TIMESTAMP}" \
+  -H "x-signature: ${SIGNATURE}" \
+  -d "${PAYLOAD}"
+```
+- Expected output: HTTP 200 response with the SQS `messageId`. Update the secret value and payload to match your device configuration.
+
+## Inspect Device Secrets in AWS
+- Description: Verify that the device HMAC secrets are stored in AWS Systems Manager Parameter Store.
+- Command:
+```bash
+aws ssm get-parameter \
+  --name "/iot/device/M001/secret" \
+  --with-decryption
+```
+- Expected output: JSON containing the decrypted secret value (requires IAM permission to read the parameter).
+
 ## Notes
 - Redeploy the API (`terraform apply`) whenever you change integrations or API key bindings so the stage picks up the latest configuration.
 
 ## Reference for APIGateway SQS integration
 
 - AWS Documentation:https://docs.aws.amazon.com/prescriptive-guidance/latest/patterns/integrate-amazon-api-gateway-with-amazon-sqs-to-handle-asynchronous-rest-apis.html
-

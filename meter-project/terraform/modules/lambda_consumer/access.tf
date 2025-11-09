@@ -25,6 +25,14 @@ resource "aws_iam_role_policy" "lambda_policy" {
       },
       {
         Effect   = "Allow"
+        Action   = [
+          "dynamodb:GetItem",
+          "dynamodb:PutItem"
+        ]
+        Resource = var.idempotency_table_arn
+      },
+      {
+        Effect   = "Allow"
         Action   = ["logs:*"]
         Resource = "*"
       }

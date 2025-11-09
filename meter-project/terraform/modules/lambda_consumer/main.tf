@@ -11,7 +11,8 @@ resource "aws_lambda_function" "iot_consumer" {
 
   environment {
     variables = {
-      DLQ_URL = var.dlq_id
+      DLQ_URL              = var.dlq_id
+      IDEMPOTENCY_TABLE    = var.idempotency_table
     }
   }
 }

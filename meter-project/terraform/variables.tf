@@ -13,3 +13,9 @@ variable "device_secret_parameters" {
   type        = map(string)
   default     = {}
 }
+
+variable "idempotency_table_name" {
+  description = "Name of the DynamoDB table used to track processed messages"
+  type        = string
+  default     = "iot-idempotency-table"
+}

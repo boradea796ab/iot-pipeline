@@ -1,10 +1,6 @@
 import json
-import os
-import boto3
 import random
 import time
-
-sqs = boto3.client("sqs")
 
 def lambda_handler(event, context):
     for record in event["Records"]:
@@ -24,12 +20,7 @@ def lambda_handler(event, context):
         except Exception as e:
             print(f"❌ Error: {e}")
 
-            # Send message explicitly to DLQ (optional)
-            dlq_url = os.environ.get("DLQ_URL")
-            if dlq_url:
-                print("➡️ Sending failed message to DLQ...")
-                sqs.send_message(QueueUrl=dlq_url, MessageBody=body)
-            # re-raise so AWS Lambda marks batch as failed → triggers retry
+            # re-raise so AWS Lambda marks batch as failed → SQS redrive policy handles DLQ
             raise
 
     return {"status": "done"}

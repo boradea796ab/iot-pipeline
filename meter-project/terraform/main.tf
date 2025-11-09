@@ -32,6 +32,11 @@ module "sqs" {
   queue_name = "hellow_queue"
 }
 
+module "idempotency_table" {
+  source     = "./modules/dynamodb"
+  table_name = var.idempotency_table_name
+}
+
 module "lambda" {
   source  = "./modules/lambda_consumer"
   sqs_arn = module.sqs.sqs_arn

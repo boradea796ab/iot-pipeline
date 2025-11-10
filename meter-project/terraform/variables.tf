@@ -19,3 +19,9 @@ variable "idempotency_table_name" {
   type        = string
   default     = "iot-idempotency-table"
 }
+
+variable "idempotency_payload_ttl_seconds" {
+  description = "How long (in seconds) to keep processed message payloads in DynamoDB"
+  type        = number
+  default     = 86400
+}

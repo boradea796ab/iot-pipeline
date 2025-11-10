@@ -8,6 +8,7 @@ from botocore.exceptions import ClientError
 
 _dynamodb = boto3.resource("dynamodb")
 _idempotency_table_name = os.environ.get("IDEMPOTENCY_TABLE")
+_payload_retention_seconds = int(os.environ.get("PAYLOAD_RETENTION_SECONDS", "0") or 0)
 _idempotency_table = (
     _dynamodb.Table(_idempotency_table_name)
     if _idempotency_table_name
@@ -37,15 +38,27 @@ def _reserve_message(message_id: str) -> bool:
         raise
 
 
-def _mark_processed(message_id: str) -> None:
+def _mark_processed(message_id: str, payload: str) -> None:
     if not _idempotency_table:
         return
 
+    now_ts = int(time.time())
+    expression_attribute_values = {
+        ":s": "PROCESSED",
+        ":ts": now_ts,
+        ":payload": payload,
+    }
+    update_expression = "SET #s = :s, processed_at = :ts, payload = :payload"
+
+    if _payload_retention_seconds > 0:
+        expression_attribute_values[":exp"] = now_ts + _payload_retention_seconds
+        update_expression += ", expires_at = :exp"
+
     _idempotency_table.update_item(
         Key={"message_id": message_id},
-        UpdateExpression="SET #s = :s, processed_at = :ts",
+        UpdateExpression=update_expression,
         ExpressionAttributeNames={"#s": "status"},
-        ExpressionAttributeValues={":s": "PROCESSED", ":ts": int(time.time())},
+        ExpressionAttributeValues=expression_attribute_values,
     )
 
 def lambda_handler(event, context):
@@ -55,6 +68,7 @@ def lambda_handler(event, context):
         print(f"Processing message: {body}")
 
         if not _reserve_message(message_id):
+            print(f"⏭️  Skipping message {message_id}: idempotency record already exists.")
             continue
 
         try:
@@ -74,6 +88,6 @@ def lambda_handler(event, context):
             # re-raise so AWS Lambda marks batch as failed → SQS redrive policy handles DLQ
             raise
         else:
-            _mark_processed(message_id)
+            _mark_processed(message_id, body)
 
     return {"status": "done"}

@@ -8,3 +8,9 @@ variable "hash_key_name" {
   type        = string
   default     = "message_id"
 }
+
+variable "ttl_attribute_name" {
+  description = "Attribute name used for DynamoDB TTL"
+  type        = string
+  default     = "expires_at"
+}

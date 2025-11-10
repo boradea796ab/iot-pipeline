@@ -44,4 +44,5 @@ module "lambda" {
   dlq_id                 = module.sqs.dlq_id
   idempotency_table = module.idempotency_table.table_name
   idempotency_table_arn  = module.idempotency_table.table_arn
+  payload_retention_seconds = var.idempotency_payload_ttl_seconds
 }

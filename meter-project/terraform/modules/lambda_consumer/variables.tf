@@ -19,3 +19,8 @@ variable "idempotency_table_arn" {
   description = "ARN of the DynamoDB table used for idempotency tracking"
   type        = string
 }
+
+variable "payload_retention_seconds" {
+  description = "Seconds to keep processed message payloads in DynamoDB"
+  type        = number
+}

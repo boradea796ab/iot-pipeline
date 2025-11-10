@@ -11,4 +11,9 @@ resource "aws_dynamodb_table" "idempotency" {
   point_in_time_recovery {
     enabled = true
   }
+
+  ttl {
+    attribute_name = var.ttl_attribute_name
+    enabled        = true
+  }
 }

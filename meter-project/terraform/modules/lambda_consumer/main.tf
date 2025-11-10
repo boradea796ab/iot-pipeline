@@ -13,6 +13,7 @@ resource "aws_lambda_function" "iot_consumer" {
     variables = {
       DLQ_URL              = var.dlq_id
       IDEMPOTENCY_TABLE    = var.idempotency_table
+      PAYLOAD_RETENTION_SECONDS = tostring(var.payload_retention_seconds)
     }
   }
 }

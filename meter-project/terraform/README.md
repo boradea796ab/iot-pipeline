@@ -63,12 +63,42 @@ aws sqs send-message \
 - Expected output: JSON response including a unique `MessageId`.
 
 ## Tail Lambda Consumer Logs
-- Description: Stream the Lambda consumer logs to verify the downstream processor handles the messages.
+- Description: Stream the Lambda consumer logs to verify the downstream processor handles the messages and idempotency skips.
 - Command:
 ```bash
-aws logs tail /aws/lambda/iot-consumer --follow
+aws logs tail /aws/lambda/iot-consumer --region ap-northeast-1 --follow
 ```
-- Expected output: Continuous log stream showing message receipt and processing events.
+- Expected output: Continuous log stream showing message receipt, success, retries, and `Skipping message ... idempotency record already exists` when duplicates are detected.
+
+## Idempotency Table
+- Description: DynamoDB table that stores processed message IDs, payloads, and TTL markers for replay.
+- Commands:
+```bash
+terraform output -raw idempotency_table_name
+aws dynamodb scan --table-name "$(terraform output -raw idempotency_table_name)" --select "COUNT"
+```
+- Expected output: Table name and current item count. Each item includes `message_id`, `status`, `processed_at`, optional `expires_at`, and the original payload.
+
+## DLQ & Replay Workflow
+- Description: End-to-end test for SQS retries, DLQ handling, and replaying successful payloads.
+- Steps:
+  1. Export environment variables:
+     ```bash
+     export API_URL=$(cd terraform && terraform output -raw api_base_url)
+     export IDEMPOTENCY_TABLE=$(cd terraform && terraform output -raw idempotency_table_name)
+     ```
+  2. Run the simulator to stress the API:
+     ```bash
+     python3 scripts/lambda_dlq_test.py
+     ```
+  3. Replay the last 50 successful payloads (throttled to avoid API Gateway limits):
+     ```bash
+     python3 scripts/replay_recent_messages.py --limit 50 --sleep 0.5
+     # or chain both:
+     ./scripts/run_sim_and_replay.sh --limit 50 --sleep 0.5
+     ```
+  4. Observe CloudWatch logs for retries and idempotency skips.
+- Expected result: New items in DynamoDB for each processed message (with payload + TTL), consistent DLQ redrive behavior, and deterministic replays without duplicate processing.
 
 ## Sample Signed Ingest Request
 - Description: Example request that includes the required HMAC headers expected by the custom Lambda authorizer.

@@ -98,6 +98,8 @@ aws dynamodb scan --table-name "$(terraform output -raw idempotency_table_name)"
      ./scripts/run_sim_and_replay.sh --limit 50 --sleep 0.5
      ```
   4. Observe CloudWatch logs for retries and idempotency skips.
+- Notes:
+  - The `iot-dlq-processor` Lambda now runs the same business logic as the primary consumer but operates directly on the DLQ. If it succeeds, the message is marked `PROCESSED` in DynamoDB; if it fails, the record stays in the DLQ for manual review.
 - Expected result: New items in DynamoDB for each processed message (with payload + TTL), consistent DLQ redrive behavior, and deterministic replays without duplicate processing.
 
 ## Sample Signed Ingest Request

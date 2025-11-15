@@ -25,3 +25,37 @@ variable "idempotency_payload_ttl_seconds" {
   type        = number
   default     = 86400
 }
+
+variable "vpc_cidr" {
+  description = "CIDR block for the main VPC"
+  type        = string
+  default     = "10.0.0.0/16"
+}
+
+variable "private_subnet_cidrs" {
+  description = "List of CIDR blocks for private subnets (must have at least two)"
+  type        = list(string)
+  default = [
+    "10.0.1.0/24",
+    "10.0.2.0/24",
+  ]
+
+  validation {
+    condition     = length(var.private_subnet_cidrs) >= 2
+    error_message = "At least two private subnet CIDRs are required."
+  }
+}
+
+variable "public_subnet_cidrs" {
+  description = "List of CIDR blocks for public subnets (must have at least two)"
+  type        = list(string)
+  default = [
+    "10.0.101.0/24",
+    "10.0.102.0/24",
+  ]
+
+  validation {
+    condition     = length(var.public_subnet_cidrs) >= 2
+    error_message = "At least two public subnet CIDRs are required."
+  }
+}

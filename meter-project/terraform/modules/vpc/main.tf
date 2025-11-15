@@ -3,23 +3,25 @@ data "aws_availability_zones" "available" {
 }
 
 locals {
-  selected_azs = slice(data.aws_availability_zones.available.names, 0, 2)
+  azs = data.aws_availability_zones.available.names
 
   private_subnet_configs = {
-    for idx, az in local.selected_azs : idx => {
-      az   = az
-      cidr = var.private_subnet_cidrs[idx]
+    for idx, cidr in var.private_subnet_cidrs : idx => {
+      cidr = cidr
+      az   = local.azs[idx % length(local.azs)]
     }
-    if idx < length(var.private_subnet_cidrs)
   }
 
   public_subnet_configs = {
-    for idx, az in local.selected_azs : idx => {
-      az   = az
-      cidr = var.public_subnet_cidrs[idx]
+    for idx, cidr in var.public_subnet_cidrs : idx => {
+      cidr = cidr
+      az   = local.azs[idx % length(local.azs)]
     }
-    if idx < length(var.public_subnet_cidrs)
   }
+
+  create_public_resources = length(var.public_subnet_cidrs) > 0
+
+  base_tags = var.tags
 }
 
 resource "aws_vpc" "main" {
@@ -27,9 +29,9 @@ resource "aws_vpc" "main" {
   enable_dns_support   = true
   enable_dns_hostnames = true
 
-  tags = {
-    Name = "meter-main"
-  }
+  tags = merge(local.base_tags, {
+    Name = "${var.name_prefix}-vpc"
+  })
 }
 
 resource "aws_subnet" "private" {
@@ -40,9 +42,9 @@ resource "aws_subnet" "private" {
   availability_zone       = each.value.az
   map_public_ip_on_launch = false
 
-  tags = {
-    Name = "meter-private-${each.key}"
-  }
+  tags = merge(local.base_tags, {
+    Name = "${var.name_prefix}-private-${each.key}"
+  })
 }
 
 resource "aws_subnet" "public" {
@@ -53,38 +55,42 @@ resource "aws_subnet" "public" {
   availability_zone       = each.value.az
   map_public_ip_on_launch = true
 
-  tags = {
-    Name = "meter-public-${each.key}"
-  }
+  tags = merge(local.base_tags, {
+    Name = "${var.name_prefix}-public-${each.key}"
+  })
 }
 
-resource "aws_internet_gateway" "main" {
+resource "aws_internet_gateway" "this" {
+  count = local.create_public_resources ? 1 : 0
+
   vpc_id = aws_vpc.main.id
 
-  tags = {
-    Name = "meter-main-igw"
-  }
+  tags = merge(local.base_tags, {
+    Name = "${var.name_prefix}-igw"
+  })
 }
 
 resource "aws_route_table" "private" {
   vpc_id = aws_vpc.main.id
 
-  tags = {
-    Name = "meter-private"
-  }
+  tags = merge(local.base_tags, {
+    Name = "${var.name_prefix}-private-rt"
+  })
 }
 
 resource "aws_route_table" "public" {
+  count = local.create_public_resources ? 1 : 0
+
   vpc_id = aws_vpc.main.id
 
   route {
     cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.main.id
+    gateway_id = aws_internet_gateway.this[0].id
   }
 
-  tags = {
-    Name = "meter-public"
-  }
+  tags = merge(local.base_tags, {
+    Name = "${var.name_prefix}-public-rt"
+  })
 }
 
 resource "aws_route_table_association" "private" {
@@ -95,8 +101,8 @@ resource "aws_route_table_association" "private" {
 }
 
 resource "aws_route_table_association" "public" {
-  for_each = aws_subnet.public
+  for_each = local.create_public_resources ? aws_subnet.public : {}
 
   subnet_id      = each.value.id
-  route_table_id = aws_route_table.public.id
+  route_table_id = aws_route_table.public[0].id
 }

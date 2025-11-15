@@ -24,13 +24,13 @@ output "idempotency_table_name" {
 }
 
 output "vpc_id" {
-  value = aws_vpc.main.id
+  value = module.network.vpc_id
 }
 
 output "private_subnet_ids" {
-  value = values(aws_subnet.private)[*].id
+  value = module.network.private_subnet_ids
 }
 
 output "public_subnet_ids" {
-  value = values(aws_subnet.public)[*].id
+  value = module.network.public_subnet_ids
 }

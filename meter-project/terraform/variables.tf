@@ -59,3 +59,9 @@ variable "public_subnet_cidrs" {
     error_message = "At least two public subnet CIDRs are required."
   }
 }
+
+variable "resource_name_prefix" {
+  description = "Prefix used to name shared infrastructure resources like the VPC and subnets"
+  type        = string
+  default     = "meter"
+}

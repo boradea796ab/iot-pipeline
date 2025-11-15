@@ -46,3 +46,12 @@ module "lambda" {
   idempotency_table_arn     = module.idempotency_table.table_arn
   payload_retention_seconds = var.idempotency_payload_ttl_seconds
 }
+
+module "network" {
+  source = "./modules/vpc"
+
+  vpc_cidr             = var.vpc_cidr
+  private_subnet_cidrs = var.private_subnet_cidrs
+  public_subnet_cidrs  = var.public_subnet_cidrs
+  name_prefix          = var.resource_name_prefix
+}

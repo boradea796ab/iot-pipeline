@@ -65,3 +65,63 @@ variable "resource_name_prefix" {
   type        = string
   default     = "meter"
 }
+
+variable "aurora_engine" {
+  description = "Aurora database engine identifier (e.g., aurora-mysql or aurora-postgresql)"
+  type        = string
+  default     = "aurora-mysql"
+}
+
+variable "aurora_engine_version" {
+  description = "Specific Aurora engine version to deploy (leave empty for AWS default)"
+  type        = string
+  default     = ""
+}
+
+variable "aurora_port" {
+  description = "Port used by the Aurora cluster (3306 for MySQL, 5432 for PostgreSQL)"
+  type        = number
+  default     = 3306
+}
+
+variable "aurora_database_name" {
+  description = "Initial database to create in the Aurora cluster"
+  type        = string
+  default     = "meter_app"
+}
+
+variable "aurora_master_username" {
+  description = "Master username for the Aurora cluster (saved in Secrets Manager)"
+  type        = string
+  default     = "meter_admin"
+}
+
+variable "aurora_min_capacity" {
+  description = "Aurora Serverless v2 minimum ACU capacity"
+  type        = number
+  default     = 0.5
+}
+
+variable "aurora_max_capacity" {
+  description = "Aurora Serverless v2 maximum ACU capacity"
+  type        = number
+  default     = 2
+}
+
+variable "aurora_backup_retention_days" {
+  description = "Number of days to retain automated Aurora backups"
+  type        = number
+  default     = 1
+}
+
+variable "aurora_deletion_protection" {
+  description = "Whether to enable deletion protection on the Aurora cluster"
+  type        = bool
+  default     = false
+}
+
+variable "aurora_skip_final_snapshot" {
+  description = "Skip final snapshot when destroying the Aurora cluster (set to false in production)"
+  type        = bool
+  default     = true
+}

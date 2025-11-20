@@ -146,3 +146,53 @@ aws ssm get-parameter \
 ## Reference for APIGateway SQS integration
 
 - AWS Documentation:https://docs.aws.amazon.com/prescriptive-guidance/latest/patterns/integrate-amazon-api-gateway-with-amazon-sqs-to-handle-asynchronous-rest-apis.html
+
+
+## Verify VPC Networking
+- Description: Confirm the Terraform-created VPC, subnets, and routing exist in AWS before wiring Lambda/RDS/DynamoDB.
+- Commands:
+```bash
+cd terraform
+VPC_ID=$(terraform output -raw vpc_id)
+PRIVATE_SUBNETS=$(terraform output -json private_subnet_ids | jq -r '.[]')
+PUBLIC_SUBNETS=$(terraform output -json public_subnet_ids | jq -r '.[]')
+
+aws ec2 describe-vpcs --vpc-ids "$VPC_ID" \
+  --query "Vpcs[].{VpcId:VpcId,CIDR:CidrBlock,DnsHostnames:EnableDnsHostnames}"
+
+aws ec2 describe-subnets --subnet-ids $PRIVATE_SUBNETS $PUBLIC_SUBNETS \
+  --query "Subnets[].{SubnetId:SubnetId,AZ:AvailabilityZone,CIDR:CidrBlock,Public:MapPublicIpOnLaunch}"
+
+aws ec2 describe-route-tables \
+  --filters "Name=vpc-id,Values=$VPC_ID" \
+  --query "RouteTables[].{RouteTableId:RouteTableId,Routes:Routes}"
+```
+- Expected output: One VPC with the configured CIDR + DNS hostnames enabled, at least two private subnets and two public subnets spread across AZs (public ones show `MapPublicIpOnLaunch=true`), and a public route table containing a `0.0.0.0/0` route targeting the created internet gateway.
+
+## Commit 2 – Aurora Networking + Cluster
+- Description: This commit stood up the Aurora Serverless v2 data plane without touching the Lambda code path: Lambda and Aurora security groups, a DB subnet group mapped to the private subnets, Secrets Manager credentials, and the Aurora cluster/instance itself. Use the following CLI checks (after `terraform apply`) to verify everything before continuing to later commits.
+- Commands:
+```bash
+cd terraform
+CLUSTER_ID=$(terraform output -raw aurora_cluster_id)
+LAMBDA_SG=$(terraform output -raw lambda_security_group_id)
+AURORA_SG=$(terraform output -raw aurora_security_group_id)
+SECRET_ARN=$(terraform output -raw aurora_secret_arn)
+DB_SUBNET_GROUP="${TF_VAR_resource_name_prefix:-meter}-aurora-subnets"
+
+aws rds describe-db-clusters --db-cluster-identifier "$CLUSTER_ID" \
+  --query "DBClusters[].{Status:Status,Endpoint:Endpoint,ReaderEndpoint:ReaderEndpoint,Engine:Engine,Capacity:ServerlessV2ScalingConfiguration}"
+
+aws ec2 describe-security-groups --group-ids "$AURORA_SG" \
+  --query "SecurityGroups[].{GroupId:GroupId,Name:GroupName,Ingress:IpPermissions,Egress:IpPermissionsEgress}"
+
+aws ec2 describe-security-groups --group-ids "$LAMBDA_SG" \
+  --query "SecurityGroups[].{GroupId:GroupId,Name:GroupName,Ingress:IpPermissions,Egress:IpPermissionsEgress}"
+
+aws rds describe-db-subnet-groups --db-subnet-group-name "$DB_SUBNET_GROUP" \
+  --query "DBSubnetGroups[].{Name:DBSubnetGroupName,Status:SubnetGroupStatus,Subnets:Subnets[].SubnetIdentifier}"
+
+aws secretsmanager get-secret-value --secret-id "$SECRET_ARN" \
+  --query "{ARN:ARN,Created:CreatedDate}"
+```
+- Expected output: The Aurora cluster shows `available` status with the writer/reader endpoints and your Serverless v2 scaling window; the Aurora SG displays a single ingress rule referencing the Lambda SG on the DB port with unrestricted egress; the Lambda SG reports no ingress rules and the default `0.0.0.0/0` egress rule; the DB subnet group lists the private subnet IDs wired in Commit 1; and Secrets Manager returns the credential secret metadata (optionally include `--query SecretString` if you need to inspect the JSON).

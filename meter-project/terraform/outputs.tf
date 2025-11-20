@@ -34,3 +34,27 @@ output "private_subnet_ids" {
 output "public_subnet_ids" {
   value = module.network.public_subnet_ids
 }
+
+output "lambda_security_group_id" {
+  value = module.lambda.lambda_security_group_id
+}
+
+output "aurora_security_group_id" {
+  value = module.aurora.aurora_security_group_id
+}
+
+output "aurora_cluster_endpoint" {
+  value = module.aurora.aurora_cluster_endpoint
+}
+
+output "aurora_reader_endpoint" {
+  value = module.aurora.aurora_reader_endpoint
+}
+
+output "aurora_secret_arn" {
+  value = module.aurora.aurora_secret_arn
+}
+
+output "aurora_cluster_id" {
+  value = module.aurora.aurora_cluster_id
+}

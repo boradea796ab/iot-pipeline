@@ -5,6 +5,14 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    archive = {
+      source  = "hashicorp/archive"
+      version = "~> 2.0"
+    }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.0"
+    }
   }
 }
 
@@ -37,6 +45,15 @@ module "idempotency_table" {
   table_name = var.idempotency_table_name
 }
 
+module "network" {
+  source = "./modules/vpc"
+
+  vpc_cidr             = var.vpc_cidr
+  private_subnet_cidrs = var.private_subnet_cidrs
+  public_subnet_cidrs  = var.public_subnet_cidrs
+  name_prefix          = var.resource_name_prefix
+}
+
 module "lambda" {
   source                    = "./modules/lambda_consumer"
   sqs_arn                   = module.sqs.sqs_arn
@@ -45,13 +62,6 @@ module "lambda" {
   idempotency_table         = module.idempotency_table.table_name
   idempotency_table_arn     = module.idempotency_table.table_arn
   payload_retention_seconds = var.idempotency_payload_ttl_seconds
-}
-
-module "network" {
-  source = "./modules/vpc"
-
-  vpc_cidr             = var.vpc_cidr
-  private_subnet_cidrs = var.private_subnet_cidrs
-  public_subnet_cidrs  = var.public_subnet_cidrs
-  name_prefix          = var.resource_name_prefix
+  vpc_id                    = module.network.vpc_id
+  resource_name_prefix      = var.resource_name_prefix
 }

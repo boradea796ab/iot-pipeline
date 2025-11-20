@@ -196,3 +196,28 @@ aws secretsmanager get-secret-value --secret-id "$SECRET_ARN" \
   --query "{ARN:ARN,Created:CreatedDate}"
 ```
 - Expected output: The Aurora cluster shows `available` status with the writer/reader endpoints and your Serverless v2 scaling window; the Aurora SG displays a single ingress rule referencing the Lambda SG on the DB port with unrestricted egress; the Lambda SG reports no ingress rules and the default `0.0.0.0/0` egress rule; the DB subnet group lists the private subnet IDs wired in Commit 1; and Secrets Manager returns the credential secret metadata (optionally include `--query SecretString` if you need to inspect the JSON).
+
+## Commit 3 – DynamoDB Idempotency + VPC Endpoints + IAM Prep
+- Description: This commit kept the existing DynamoDB idempotency table but added the networking dependencies Lambda will need once it runs inside the VPC: a Gateway endpoint for DynamoDB, Interface endpoints for SQS/Logs/STS/Secrets Manager, and a dedicated endpoint security group that only trusts the Lambda security group on TCP/443. Lambda IAM already grants SQS/DynamoDB/CloudWatch Logs access, so no policy change was required.
+- Commands:
+```bash
+cd terraform
+VPC_ID=$(terraform output -raw vpc_id)
+DDB_ENDPOINT=$(terraform output -raw dynamodb_vpc_endpoint_id)
+INTERFACE_ENDPOINTS=$(terraform output -json interface_vpc_endpoint_ids | jq -r '.[]')
+VPCE_SG=$(terraform output -raw vpc_endpoint_security_group_id)
+IDEMPOTENCY_TABLE=$(terraform output -raw idempotency_table_name)
+
+aws ec2 describe-vpc-endpoints --vpc-endpoint-ids "$DDB_ENDPOINT" \
+  --query "VpcEndpoints[].{Service:ServiceName,Type:VpcEndpointType,RouteTables:RouteTableIds}"
+
+aws ec2 describe-vpc-endpoints --vpc-endpoint-ids $INTERFACE_ENDPOINTS \
+  --query "VpcEndpoints[].{Service:ServiceName,Subnets:SubnetIds,SecurityGroups:Groups[].GroupId}"
+
+aws ec2 describe-security-groups --group-ids "$VPCE_SG" \
+  --query "SecurityGroups[].{Name:GroupName,Ingress:IpPermissions,Egress:IpPermissionsEgress}"
+
+aws dynamodb describe-table --table-name "$IDEMPOTENCY_TABLE" \
+  --query "{TableName:Table.TableName,BillingMode:Table.BillingModeSummary.BillingMode}"
+```
+- Expected output: The DynamoDB Gateway endpoint shows type `Gateway` with your private route table ID; the Interface endpoints list the private subnet IDs and the endpoint SG; the endpoint security group contains a single ingress rule referencing the Lambda SG on port 443 plus the default allow-all egress; and DynamoDB reports the idempotency table in `PAY_PER_REQUEST` mode, confirming there were no schema changes.

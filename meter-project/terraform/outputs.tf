@@ -58,3 +58,15 @@ output "aurora_secret_arn" {
 output "aurora_cluster_id" {
   value = module.aurora.aurora_cluster_id
 }
+
+output "vpc_endpoint_security_group_id" {
+  value = aws_security_group.vpc_endpoints.id
+}
+
+output "dynamodb_vpc_endpoint_id" {
+  value = aws_vpc_endpoint.dynamodb.id
+}
+
+output "interface_vpc_endpoint_ids" {
+  value = { for name, endpoint in aws_vpc_endpoint.interface : name => endpoint.id }
+}

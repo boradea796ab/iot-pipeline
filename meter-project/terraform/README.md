@@ -221,3 +221,26 @@ aws dynamodb describe-table --table-name "$IDEMPOTENCY_TABLE" \
   --query "{TableName:Table.TableName,BillingMode:Table.BillingModeSummary.BillingMode}"
 ```
 - Expected output: The DynamoDB Gateway endpoint shows type `Gateway` with your private route table ID; the Interface endpoints list the private subnet IDs and the endpoint SG; the endpoint security group contains a single ingress rule referencing the Lambda SG on port 443 plus the default allow-all egress; and DynamoDB reports the idempotency table in `PAY_PER_REQUEST` mode, confirming there were no schema changes.
+
+## Commit 4 – Lambda Inside the VPC (Aurora/DynamoDB Ready)
+- Description: The primary SQS consumer Lambda and the DLQ processor now attach ENIs inside the private subnets using the Lambda security group, so they can reach Aurora/DynamoDB through the new VPC endpoints. The handler logic is unchanged; this commit only moves the Lambdas and updates IAM to allow ENI management.
+- Commands:
+```bash
+cd terraform
+terraform init   # once per repo copy
+terraform apply
+
+export API_URL=$(terraform output -raw api_base_url)
+
+aws lambda get-function-configuration --function-name iot-consumer \
+  --query '{SubnetIds:VpcConfig.SubnetIds,SecurityGroups:VpcConfig.SecurityGroupIds}'
+
+aws lambda get-function-configuration --function-name iot-dlq-processor \
+  --query '{SubnetIds:VpcConfig.SubnetIds,SecurityGroups:VpcConfig.SecurityGroupIds}'
+
+cd ..
+python3 scripts/lambda_dlq_test.py --messages 5 --delay 0.5
+
+aws logs tail /aws/lambda/iot-consumer --region ap-northeast-1 --since 5m --follow
+```
+- Expected output: `terraform apply` completes without Lambda role errors, both Lambdas show the expected private subnet IDs and the Lambda SG in their `VpcConfig`, the simulator run succeeds against `${API_URL}`, and CloudWatch logs show successful ingestion without connectivity failures. Optionally finish with `python3 scripts/replay_recent_messages.py --limit 5 --sleep 0.5` to confirm the DLQ processor still works inside the VPC.

@@ -64,4 +64,5 @@ module "lambda" {
   payload_retention_seconds = var.idempotency_payload_ttl_seconds
   vpc_id                    = module.network.vpc_id
   resource_name_prefix      = var.resource_name_prefix
+  private_subnet_ids        = module.network.private_subnet_ids
 }

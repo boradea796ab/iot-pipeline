@@ -34,3 +34,8 @@ variable "resource_name_prefix" {
   description = "Prefix applied to Lambda networking resources"
   type        = string
 }
+
+variable "private_subnet_ids" {
+  description = "Private subnet IDs that host the Lambda ENIs"
+  type        = list(string)
+}

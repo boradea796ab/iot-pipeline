@@ -37,7 +37,16 @@ resource "aws_iam_role_policy" "dlq_lambda_policy" {
         Effect   = "Allow"
         Action   = ["logs:*"]
         Resource = "*"
-      }
+      },
+        {
+      Effect = "Allow"
+      Action = [
+        "ec2:CreateNetworkInterface",
+        "ec2:DescribeNetworkInterfaces",
+        "ec2:DeleteNetworkInterface"
+      ]
+      Resource = "*"
+    }
     ]
   })
 }

@@ -38,7 +38,7 @@ resource "aws_iam_role_policy" "dlq_lambda_policy" {
         Action   = ["logs:*"]
         Resource = "*"
       },
-        {
+      {
       Effect = "Allow"
       Action = [
         "ec2:CreateNetworkInterface",
@@ -46,7 +46,14 @@ resource "aws_iam_role_policy" "dlq_lambda_policy" {
         "ec2:DeleteNetworkInterface"
       ]
       Resource = "*"
-    }
+      },
+      {
+        Effect = "Allow",
+        Action = [
+          "secretsmanager:GetSecretValue"
+        ],
+        Resource = var.secretsmanager_aurora_arn
+      }
     ]
   })
 }

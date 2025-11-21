@@ -64,6 +64,9 @@ resource "aws_rds_cluster" "this" {
   copy_tags_to_snapshot        = true
   preferred_backup_window      = "03:00-04:00"
   preferred_maintenance_window = "sun:04:30-sun:05:30"
+  enable_http_endpoint = false
+  # for external access- do not enable for production
+  # enable_http_endpoint = true
 
   serverlessv2_scaling_configuration {
     min_capacity = var.aurora_min_capacity

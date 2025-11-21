@@ -45,6 +45,13 @@ resource "aws_iam_role_policy" "lambda_policy" {
           "ec2:DeleteNetworkInterface"
         ]
         Resource = "*"
+      },
+      {
+        Effect = "Allow",
+        Action = [
+          "secretsmanager:GetSecretValue"
+        ],
+        Resource = var.secretsmanager_aurora_arn
       }
     ]
   })

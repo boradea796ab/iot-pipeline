@@ -125,3 +125,9 @@ variable "aurora_skip_final_snapshot" {
   type        = bool
   default     = true
 }
+
+variable "readings_table_name" {
+  description = "Aurora table name used by the Lambda consumers"
+  type        = string
+  default     = "iot_readings"
+}

@@ -244,3 +244,62 @@ python3 scripts/lambda_dlq_test.py --messages 5 --delay 0.5
 aws logs tail /aws/lambda/iot-consumer --region ap-northeast-1 --since 5m --follow
 ```
 - Expected output: `terraform apply` completes without Lambda role errors, both Lambdas show the expected private subnet IDs and the Lambda SG in their `VpcConfig`, the simulator run succeeds against `${API_URL}`, and CloudWatch logs show successful ingestion without connectivity failures. Optionally finish with `python3 scripts/replay_recent_messages.py --limit 5 --sleep 0.5` to confirm the DLQ processor still works inside the VPC.
+
+## Lambda Packaging Workflow
+- Description: The Lambda modules now expect their source + dependencies to be staged under `terraform/modules/lambda_consumer/build/*` before Terraform zips them. Use the helper script whenever you change the handler logic or requirements.
+- Commands:
+```bash
+cd modules/lambda_consumer
+./build_lambdas.sh          # installs PyMySQL via requirements.txt and copies handlers
+
+# Optional: inspect the build output
+ls build/iot_consumer build/dlq_processor
+
+# Return to the Terraform root when ready to plan/apply
+cd ../..
+```
+- Notes: The script uses `python3 -m pip` to install dependencies listed in `requirements.txt`. Ensure `pip` is available in your shell (install it via your OS package manager if needed). Terraform’s `archive_file` data sources now zip the populated build folders, so always run the script before `terraform plan`/`apply` to avoid missing modules like `PyMySQL` at runtime.
+
+## Commit 5 – Aurora Data API, Schema Prep, and End-to-End Validation
+- Description: For this commit we temporarily exposed the Aurora cluster via the AWS RDS Data API (`enable_http_endpoint = true` in `modules/aurora/main.tf`) so we could run DDL/queries from outside the private subnets, created the `iot_readings` table, rebuilt the Lambda bundles (so PyMySQL ships with the handler), and ran the simulator to confirm rows land in Aurora. Once you finish any ad-hoc SQL work, revert that setting to `false` (or remove it) so the database is only reachable from inside the VPC.
+- Commands:
+```bash
+# 1. Enable the Data API (set enable_http_endpoint = true in modules/aurora/main.tf, then terraform apply)
+
+# 2. Create/inspect the table
+cd terraform
+CLUSTER_ARN=$(aws rds describe-db-clusters --db-cluster-identifier "$(terraform output -raw aurora_cluster_id)" --query 'DBClusters[0].DBClusterArn' --output text)
+SECRET_ARN=$(terraform output -raw aurora_secret_arn)
+DB_NAME=$(terraform output -raw aurora_database_name 2>/dev/null || echo "meter_app")
+
+aws rds-data execute-statement \
+  --resource-arn "$CLUSTER_ARN" \
+  --secret-arn "$SECRET_ARN" \
+  --database "$DB_NAME" \
+  --sql "CREATE TABLE IF NOT EXISTS iot_readings (message_id VARCHAR(64) PRIMARY KEY, payload JSON NOT NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP)"
+
+aws rds-data execute-statement \
+  --resource-arn "$CLUSTER_ARN" \
+  --secret-arn "$SECRET_ARN" \
+  --database "$DB_NAME" \
+  --sql \"SELECT column_name,data_type FROM information_schema.columns WHERE table_schema = '$DB_NAME' AND table_name = 'iot_readings'\"
+
+# 3. Rebuild Lambda bundles so PyMySQL (and the handlers) land in the build folders Terraform zips
+cd modules/lambda_consumer
+./build_lambdas.sh
+cd ../..
+
+# 4. Apply Terraform (redeploy Lambdas with the new artifacts)
+terraform apply
+
+# 5. Simulate traffic that exercises the full path and watch Aurora via Data API
+cd ..
+python3 scripts/lambda_dlq_test.py --messages 5 --delay 0.5
+
+aws rds-data execute-statement \
+  --resource-arn "$CLUSTER_ARN" \
+  --secret-arn "$SECRET_ARN" \
+  --database "$DB_NAME" \
+  --sql \"SELECT message_id, created_at FROM iot_readings ORDER BY created_at DESC LIMIT 5\"
+```
+- Expected output: Table creation runs once (subsequent calls are no-ops), the Lambda build completes with PyMySQL installed into `build/*`, `terraform apply` updates only the Lambda code hashes, and the simulator writes rows you can immediately query via `SELECT`. After finishing the SQL work, disable the Data API or tear down whatever external access path you opened so the Aurora cluster returns to private-only connectivity.

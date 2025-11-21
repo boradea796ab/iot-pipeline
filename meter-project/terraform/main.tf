@@ -65,4 +65,6 @@ module "lambda" {
   vpc_id                    = module.network.vpc_id
   resource_name_prefix      = var.resource_name_prefix
   private_subnet_ids        = module.network.private_subnet_ids
+  secretsmanager_aurora_arn = module.aurora.aurora_secret_arn
+  readings_table_name       = var.readings_table_name
 }

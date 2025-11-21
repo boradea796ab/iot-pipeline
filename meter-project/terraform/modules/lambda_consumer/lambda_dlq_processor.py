@@ -5,6 +5,7 @@ import time
 
 import boto3
 from botocore.exceptions import ClientError
+import pymysql
 
 _dynamodb = boto3.resource("dynamodb")
 _dlq_url = os.environ.get("DLQ_URL")
@@ -67,30 +68,83 @@ def _mark_processed(message_id: str, payload: str) -> None:
     )
 
 
+# -----------------------------
+# Aurora DB Setup (via Secrets Manager)
+# -----------------------------
+DB_SECRET_ARN = os.environ["DB_SECRET_ARN"]
+
+_secrets = boto3.client("secretsmanager")
+secret_raw = _secrets.get_secret_value(SecretId=DB_SECRET_ARN)
+secret = json.loads(secret_raw["SecretString"])
+
+DB_HOST = secret["host"]
+DB_USER = secret["username"]
+DB_PASSWORD = secret["password"]
+DB_NAME = secret["database"]
+DB_PORT = int(secret.get("port", 3306))
+READINGS_TABLE = os.environ.get("READINGS_TABLE", "iot_readings")
+
+
+
+def get_db_connection():
+    """Create a new DB connection each invocation (fast for Aurora Serverless v2)."""
+    return pymysql.connect(
+        host=DB_HOST,
+        user=DB_USER,
+        password=DB_PASSWORD,
+        database=DB_NAME,
+        port=DB_PORT,
+        connect_timeout=5,
+        cursorclass=pymysql.cursors.DictCursor,
+    )
+
+
+def save_reading_to_db(conn, message_id, payload_dict):
+    """Insert a decoded reading into Aurora."""
+    with conn.cursor() as cur:
+        sql = f"""
+            INSERT INTO {READINGS_TABLE} (
+                id,
+                payload,
+                created_at
+            ) VALUES (%s, %s, NOW())
+        """
+        cur.execute(sql, (message_id, json.dumps(payload_dict)))
+    conn.commit()
+
+
 def lambda_handler(event, context):
-    for record in event.get("Records", []):
-        body = record["body"]
-        message_id = record["messageId"]
-        print(f"[DLQ] Processing message: {body}")
+    conn = None
+    try:
+        conn = get_db_connection()
 
-        if not _reserve_message(message_id):
-            continue
+        for record in event.get("Records", []):
+            body = record["body"]
+            message_id = record["messageId"]
+            print(f"[DLQ] Processing message: {body}")
 
-        try:
-            data = json.loads(body)
+            if not _reserve_message(message_id):
+                continue
 
-            # Reuse the same business logic as the primary consumer.
-            if random.random() < 0.3:
-                raise ValueError("💥 Simulated random failure (DLQ)")
+            try:
+                payload = json.loads(body)
 
-            print(f"[DLQ] ✅ Successfully processed message: {data}")
-            time.sleep(0.2)
+                # Reuse the same business logic as the primary consumer.
+                if random.random() < 0.3:
+                    raise ValueError("💥 Simulated random failure (DLQ)")
 
-        except Exception as exc:
-            print(f"[DLQ] ❌ Error while processing message {message_id}: {exc}")
-            # Raising keeps the message in the DLQ for further manual review/retry.
-            raise
-        else:
-            _mark_processed(message_id, body)
+                # Save to Aurora
+                save_reading_to_db(conn, message_id, payload)
+                print(f"💾 Saved to Aurora: {message_id}")
+
+            except Exception as exc:
+                print(f"[DLQ] ❌ Error while processing message {message_id}: {exc}")
+                # Raising keeps the message in the DLQ for further manual review/retry.
+                raise
+            else:
+                _mark_processed(message_id, body)
+    finally:
+        if conn:
+            conn.close()
 
     return {"status": "dlq-processed"}

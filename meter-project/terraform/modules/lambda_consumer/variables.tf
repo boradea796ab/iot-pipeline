@@ -39,3 +39,13 @@ variable "private_subnet_ids" {
   description = "Private subnet IDs that host the Lambda ENIs"
   type        = list(string)
 }
+
+variable "secretsmanager_aurora_arn" {
+  description = "Access Credentials for Aurora DB"
+  type        = string
+}
+
+variable "readings_table_name" {
+  description = "Aurora table that stores meter readings"
+  type        = string
+}

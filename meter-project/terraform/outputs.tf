@@ -63,6 +63,11 @@ output "aurora_proxy_endpoint" {
   value = module.aurora.db_proxy_endpoint
 }
 
+output "iot_alarms_topic_arn" {
+  description = "SNS topic ARN used by CloudWatch alarms"
+  value       = aws_sns_topic.iot_alarms.arn
+}
+
 output "vpc_endpoint_security_group_id" {
   value = aws_security_group.vpc_endpoints.id
 }

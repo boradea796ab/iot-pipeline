@@ -59,6 +59,10 @@ output "aurora_cluster_id" {
   value = module.aurora.aurora_cluster_id
 }
 
+output "aurora_proxy_endpoint" {
+  value = module.aurora.db_proxy_endpoint
+}
+
 output "vpc_endpoint_security_group_id" {
   value = aws_security_group.vpc_endpoints.id
 }

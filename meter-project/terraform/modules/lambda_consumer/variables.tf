@@ -49,3 +49,15 @@ variable "readings_table_name" {
   description = "Aurora table that stores meter readings"
   type        = string
 }
+
+variable "db_proxy_endpoint" {
+  description = "Optional RDS Proxy endpoint for shared DB connections"
+  type        = string
+  default     = ""
+}
+
+variable "dlq_max_attempts" {
+  description = "Number of times the DLQ processor retries a message before parking it"
+  type        = number
+  default     = 3
+}

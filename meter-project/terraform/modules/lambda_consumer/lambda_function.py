@@ -24,13 +24,17 @@ def _reserve_message(message_id: str) -> bool:
         return True
 
     try:
-        _idempotency_table.put_item(
-            Item={
-                "message_id": message_id,
-                "status": "PROCESSING",
-                "updated_at": int(time.time()),
+        _idempotency_table.update_item(
+            Key={"message_id": message_id},
+            UpdateExpression="SET #s = :status, updated_at = :ts",
+            ExpressionAttributeNames={"#s": "status"},
+            ExpressionAttributeValues={
+                ":status": "PROCESSING",
+                ":ts": int(time.time()),
+                ":processed": "PROCESSED",
+                ":failed": "FAILED_DLQ",
             },
-            ConditionExpression="attribute_not_exists(message_id)",
+            ConditionExpression="attribute_not_exists(#s) OR (#s <> :processed AND #s <> :failed)",
         )
         return True
     except ClientError as err:
@@ -79,20 +83,47 @@ DB_PASSWORD = secret["password"]
 DB_NAME = secret["database"]
 DB_PORT = int(secret.get("port", 3306))
 READINGS_TABLE = os.environ.get("READINGS_TABLE", "iot_readings")
+DB_PROXY_ENDPOINT = os.environ.get("DB_PROXY_ENDPOINT")
+
+_db_conn = None
+
+
+def _close_cached_connection():
+    global _db_conn
+    if _db_conn:
+        try:
+            _db_conn.close()
+        except Exception:
+            pass
+        finally:
+            _db_conn = None
 
 
 
 def get_db_connection():
     """Create a new DB connection each invocation (fast for Aurora Serverless v2)."""
-    return pymysql.connect(
-        host=DB_HOST,
+    global _db_conn
+
+    if _db_conn is not None:
+        try:
+            _db_conn.ping(reconnect=True)
+            return _db_conn
+        except Exception:
+            _close_cached_connection()
+
+    ssl_params = {"ca": "/etc/pki/tls/cert.pem"} if DB_PROXY_ENDPOINT else None
+
+    _db_conn = pymysql.connect(
+        host=DB_PROXY_ENDPOINT or DB_HOST,
         user=DB_USER,
         password=DB_PASSWORD,
         database=DB_NAME,
         port=DB_PORT,
         connect_timeout=5,
         cursorclass=pymysql.cursors.DictCursor,
+        ssl=ssl_params,
     )
+    return _db_conn
 
 
 def save_reading_to_db(conn, message_id, payload_dict):
@@ -110,41 +141,36 @@ def save_reading_to_db(conn, message_id, payload_dict):
 
 
 def lambda_handler(event, context):
-    conn = None
-    try:
-        conn = get_db_connection()
+    conn = get_db_connection()
 
-        for record in event.get("Records", []):
-            body = record["body"]
-            message_id = record["messageId"]
-            print(f"Processing message: {body}")
+    for record in event.get("Records", []):
+        body = record["body"]
+        message_id = record["messageId"]
+        print(f"Processing message: {body}")
 
-            if not _reserve_message(message_id):
-                print(
-                    f"⏭️  Skipping message {message_id}: idempotency record already exists."
-                )
-                continue
+        if not _reserve_message(message_id):
+            print(f"⏭️  Skipping message {message_id}: idempotency record already exists.")
+            continue
 
-            try:
-                payload = json.loads(body)
+        try:
+            payload = json.loads(body)
 
-                # 🧠 Simulate transient failure ~30% of the time
-                if random.random() < 0.3:
-                    raise ValueError("💥 Simulated random failure")
+            # 🧠 Simulate transient failure ~30% of the time
+            if random.random() < 0.3:
+                raise ValueError("💥 Simulated random failure")
 
-                # Save to Aurora
-                save_reading_to_db(conn, message_id, payload)
-                print(f"💾 Saved to Aurora: {message_id}")
+            # Save to Aurora
+            save_reading_to_db(conn, message_id, payload)
+            print(f"💾 Saved to Aurora: {message_id}")
 
-            except Exception as e:
-                print(f"❌ Error: {e}")
+        except Exception as e:
+            print(f"❌ Error: {e}")
+            if isinstance(e, pymysql.MySQLError):
+                _close_cached_connection()
 
-                # re-raise so AWS Lambda marks batch as failed → SQS redrive policy handles DLQ
-                raise
-            else:
-                _mark_processed(message_id, body)
-    finally:
-        if conn:
-            conn.close()
+            # re-raise so AWS Lambda marks batch as failed → SQS redrive policy handles DLQ
+            raise
+        else:
+            _mark_processed(message_id, body)
 
     return {"status": "done"}

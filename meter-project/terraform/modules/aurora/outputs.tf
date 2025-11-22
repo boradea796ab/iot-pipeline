@@ -21,3 +21,15 @@ output "aurora_secret_arn" {
 output "aurora_cluster_id" {
   value = aws_rds_cluster.this.id
 }
+
+output "db_proxy_endpoint" {
+  value = aws_db_proxy.this.endpoint
+}
+
+output "db_proxy_arn" {
+  value = aws_db_proxy.this.arn
+}
+
+output "db_proxy_name" {
+  value = aws_db_proxy.this.name
+}

@@ -7,6 +7,7 @@ locals {
     dlq_lambda        = module.lambda.dlq_function_name
     dynamodb_table    = module.idempotency_table.table_name
     aurora_identifier = module.aurora.aurora_cluster_id
+    rds_proxy_name    = module.aurora.db_proxy_name
   }
 }
 
@@ -115,6 +116,25 @@ resource "aws_cloudwatch_dashboard" "iot_pipeline" {
         width  = 12
         height = 6
         properties = {
+          title = "DynamoDB - Latency & Errors"
+          metrics = [
+            ["AWS/DynamoDB", "SuccessfulRequestLatency", "TableName", local.iot_dashboard.dynamodb_table, { stat = "Average", label = "Latency (ms)" }],
+            [".", "SystemErrors", ".", ".", { stat = "Sum", label = "System Errors" }],
+            [".", "UserErrors", ".", ".", { stat = "Sum", label = "User Errors" }]
+          ]
+          view    = "timeSeries"
+          stacked = false
+          region  = var.region
+          period  = 60
+        }
+      },
+      {
+        type   = "metric"
+        x      = 12
+        y      = 18
+        width  = 12
+        height = 6
+        properties = {
           title = "DLQ Lambda - Invocations, Errors, Duration"
           metrics = [
             ["AWS/Lambda", "Invocations", "FunctionName", local.iot_dashboard.dlq_lambda, { stat = "Sum", label = "Invocations" }],
@@ -132,13 +152,32 @@ resource "aws_cloudwatch_dashboard" "iot_pipeline" {
         type   = "metric"
         x      = 0
         y      = 24
-        width  = 24
+        width  = 12
         height = 6
         properties = {
-          title = "RDS - CPU & Connections"
+          title = "RDS - CPU & Memory"
           metrics = [
             ["AWS/RDS", "CPUUtilization", "DBClusterIdentifier", local.iot_dashboard.aurora_identifier, { stat = "Average", label = "CPU (%)" }],
-            [".", "DatabaseConnections", ".", ".", { stat = "Average", label = "Connections" }]
+            [".", "FreeableMemory", ".", ".", { stat = "Average", label = "Free Mem (MB)", yAxis = "right" }]
+          ]
+          view    = "timeSeries"
+          stacked = false
+          region  = var.region
+          period  = 60
+        }
+      },
+      {
+        type   = "metric"
+        x      = 12
+        y      = 24
+        width  = 12
+        height = 6
+        properties = {
+          title = "RDS Connections"
+          metrics = [
+            ["AWS/RDS", "DatabaseConnections", "DBClusterIdentifier", local.iot_dashboard.aurora_identifier, { stat = "Maximum", label = "Cluster Connections" }],
+            ["AWS/RDS", "ClientConnections", "DBProxyName", local.iot_dashboard.rds_proxy_name, { stat = "Average", label = "Proxy Clients" }],
+            ["AWS/RDS", "DatabaseConnections", "DBProxyName", local.iot_dashboard.rds_proxy_name, { stat = "Average", label = "Proxy DB Sessions" }]
           ]
           view    = "timeSeries"
           stacked = false

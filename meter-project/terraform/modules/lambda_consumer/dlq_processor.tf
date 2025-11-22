@@ -15,7 +15,9 @@ resource "aws_lambda_function" "dlq_processor" {
   environment {
     variables = {
       DB_SECRET_ARN             = var.secretsmanager_aurora_arn
+      DB_PROXY_ENDPOINT         = var.db_proxy_endpoint
       DLQ_URL                   = var.dlq_id
+      DLQ_MAX_ATTEMPTS          = tostring(var.dlq_max_attempts)
       IDEMPOTENCY_TABLE         = var.idempotency_table
       PAYLOAD_RETENTION_SECONDS = tostring(var.payload_retention_seconds)
       READINGS_TABLE            = var.readings_table_name

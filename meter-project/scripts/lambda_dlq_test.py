@@ -15,7 +15,7 @@ DEVICE_SECRETS = {
     "M001": "supersecret-key-m001",
     "M002": "anothersecret-key"
 }
-REQUEST_COUNT  = 200
+REQUEST_COUNT  = 300
 DURATION_SEC   = 100.0
 # ------------------------------------------------------------------------------
 

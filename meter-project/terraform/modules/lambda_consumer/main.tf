@@ -17,6 +17,7 @@ resource "aws_lambda_function" "iot_consumer" {
   environment {
     variables = {
       DB_SECRET_ARN             = var.secretsmanager_aurora_arn
+      DB_PROXY_ENDPOINT         = var.db_proxy_endpoint
       DLQ_URL                   = var.dlq_id
       IDEMPOTENCY_TABLE         = var.idempotency_table
       PAYLOAD_RETENTION_SECONDS = tostring(var.payload_retention_seconds)

@@ -21,3 +21,8 @@ output "dlq_id" {
   description = "ARN of the IoT SQS DLQ"
   value       = aws_sqs_queue.iot_dlq.id
 }
+
+output "dlq_name" {
+  description = "Name of the DLQ used for monitoring dashboards"
+  value       = aws_sqs_queue.iot_dlq.name
+}

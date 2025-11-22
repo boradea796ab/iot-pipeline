@@ -8,3 +8,8 @@ output "api_key_device_m1" {
   description = "API key for device M1"
   sensitive   = true
 }
+
+output "api_name" {
+  description = "API Gateway name used for dashboards and alarms"
+  value       = aws_api_gateway_rest_api.iot_api.name
+}

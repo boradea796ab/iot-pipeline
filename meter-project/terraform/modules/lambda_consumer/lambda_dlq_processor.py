@@ -1,10 +1,15 @@
 import json
+import logging
 import os
 import time
+import uuid
 
 import boto3
-from botocore.exceptions import ClientError
 import pymysql
+from botocore.exceptions import ClientError
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 _dynamodb = boto3.resource("dynamodb")
 _idempotency_table_name = os.environ.get("IDEMPOTENCY_TABLE")
@@ -107,7 +112,6 @@ DB_PASSWORD = secret["password"]
 DB_NAME = secret["database"]
 DB_PORT = int(secret.get("port", 3306))
 READINGS_TABLE = os.environ.get("READINGS_TABLE", "iot_readings")
-DB_PROXY_ENDPOINT = os.environ.get("DB_PROXY_ENDPOINT")
 MAX_DLQ_ATTEMPTS = int(os.environ.get("DLQ_MAX_ATTEMPTS", "3"))
 
 _db_conn = None
@@ -136,17 +140,14 @@ def get_db_connection():
         except Exception:
             _close_cached_connection()
 
-    ssl_params = {"ca": "/etc/pki/tls/cert.pem"} if DB_PROXY_ENDPOINT else None
-
     _db_conn = pymysql.connect(
-        host=DB_PROXY_ENDPOINT or DB_HOST,
+        host=DB_HOST,
         user=DB_USER,
         password=DB_PASSWORD,
         database=DB_NAME,
         port=DB_PORT,
         connect_timeout=5,
         cursorclass=pymysql.cursors.DictCursor,
-        ssl=ssl_params,
     )
     return _db_conn
 
@@ -156,7 +157,7 @@ def save_reading_to_db(conn, message_id, payload_dict):
     with conn.cursor() as cur:
         sql = f"""
             INSERT INTO {READINGS_TABLE} (
-                id,
+                message_id,
                 payload,
                 created_at
             ) VALUES (%s, %s, NOW())
@@ -167,16 +168,39 @@ def save_reading_to_db(conn, message_id, payload_dict):
 
 def lambda_handler(event, context):
     conn = get_db_connection()
+    batch_failures = []
 
     for record in event.get("Records", []):
         body = record["body"]
         message_id = record["messageId"]
         print(f"[DLQ] Processing message: {body}")
+        request_id = getattr(context, "aws_request_id", str(uuid.uuid4()))
+        dlq_attempt = int(record.get("attributes", {}).get("ApproximateReceiveCount", "1"))
+        t_start = time.time()
+        logger.info(
+            json.dumps(
+                {
+                    "event": "dlq_start",
+                    "message_id": message_id,
+                    "request_id": request_id,
+                    "attempt": dlq_attempt,
+                    "timestamp_ms": int(t_start * 1000),
+                }
+            )
+        )
 
         if not _reserve_message(message_id):
+            logger.info(
+                json.dumps(
+                    {
+                        "event": "dlq_skip",
+                        "reason": "idempotent",
+                        "message_id": message_id,
+                        "request_id": request_id,
+                    }
+                )
+            )
             continue
-
-        receive_count = int(record.get("attributes", {}).get("ApproximateReceiveCount", "1"))
 
         try:
             payload = json.loads(body)
@@ -189,15 +213,52 @@ def lambda_handler(event, context):
             print(f"[DLQ] ❌ Error while processing message {message_id}: {exc}")
             if isinstance(exc, pymysql.MySQLError):
                 _close_cached_connection()
-            if receive_count >= MAX_DLQ_ATTEMPTS:
+            logger.error(
+                json.dumps(
+                    {
+                        "event": "dlq_failure",
+                        "message_id": message_id,
+                        "request_id": request_id,
+                        "attempt": dlq_attempt,
+                        "error": str(exc),
+                    }
+                )
+            )
+            if dlq_attempt >= MAX_DLQ_ATTEMPTS:
                 print(
                     f"[DLQ] ⚠️ Message {message_id} exceeded {MAX_DLQ_ATTEMPTS} attempts; marking FAILED_DLQ"
                 )
                 _mark_failed(message_id, body, str(exc))
+                logger.warning(
+                    json.dumps(
+                        {
+                            "event": "dlq_failed_terminal",
+                            "message_id": message_id,
+                            "request_id": request_id,
+                            "attempt": dlq_attempt,
+                        }
+                    )
+                )
                 continue
-            # Raising keeps the message in the DLQ for further manual review/retry.
-            raise
+
+            batch_failures.append({"itemIdentifier": message_id})
+            continue
         else:
             _mark_processed(message_id, body)
+            duration_ms = int((time.time() - t_start) * 1000)
+            logger.info(
+                json.dumps(
+                    {
+                        "event": "dlq_success",
+                        "message_id": message_id,
+                        "request_id": request_id,
+                        "attempt": dlq_attempt,
+                        "duration_ms": duration_ms,
+                    }
+                )
+            )
 
-    return {"status": "dlq-processed"}
+    response = {"status": "dlq-processed"}
+    if batch_failures:
+        response["batchItemFailures"] = batch_failures
+    return response

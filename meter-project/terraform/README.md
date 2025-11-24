@@ -1,5 +1,12 @@
 # Component Test Guide
 
+## Recent Changes (last 5 commits)
+- **Monitoring dashboard** – Added `monitoring_dashboard.tf` with API/SQS/DLQ/Lambda/DynamoDB/RDS widgets so you can watch 1-minute load tests end-to-end.
+- **RDS proxy & connection pooling** – Lambdas now reuse warm DB connections and prefer the new RDS Proxy endpoint (with TLS) for faster spikes.
+- **DLQ safeguards** – DLQ processor tracks `FAILED_DLQ` status, limits attempts via `DLQ_MAX_ATTEMPTS`, and records failure metadata to halt runaway retries.
+- **CloudWatch alarms** – `monitoring_alarms.tf` provisions SNS + alarms for SQS lag, Lambda/DLQ errors, API 5xx, DynamoDB throttles, and DLQ depth; subscribe via the exposed `iot_alarms_topic_arn` output.
+- **Terraform outputs** – Added helper outputs (API name, queue names, Lambda names, alarm topic, RDS proxy info) so dashboards/alarms/scripts can reference resource identifiers without hardcoding.
+
 ## Fetch SQS Queue URL
 - Description: Retrieve the queue URL from Terraform outputs for reuse in CLI commands.
 - Command:
@@ -282,7 +289,7 @@ aws rds-data execute-statement \
   --resource-arn "$CLUSTER_ARN" \
   --secret-arn "$SECRET_ARN" \
   --database "$DB_NAME" \
-  --sql \"SELECT column_name,data_type FROM information_schema.columns WHERE table_schema = '$DB_NAME' AND table_name = 'iot_readings'\"
+  --sql "SELECT column_name,data_type FROM information_schema.columns WHERE table_schema = '${DB_NAME}' AND table_name = 'iot_readings'"
 
 # 3. Rebuild Lambda bundles so PyMySQL (and the handlers) land in the build folders Terraform zips
 cd modules/lambda_consumer
@@ -300,6 +307,6 @@ aws rds-data execute-statement \
   --resource-arn "$CLUSTER_ARN" \
   --secret-arn "$SECRET_ARN" \
   --database "$DB_NAME" \
-  --sql \"SELECT message_id, created_at FROM iot_readings ORDER BY created_at DESC LIMIT 5\"
+  --sql "SELECT message_id, created_at FROM iot_readings ORDER BY created_at DESC LIMIT 5"
 ```
 - Expected output: Table creation runs once (subsequent calls are no-ops), the Lambda build completes with PyMySQL installed into `build/*`, `terraform apply` updates only the Lambda code hashes, and the simulator writes rows you can immediately query via `SELECT`. After finishing the SQL work, disable the Data API or tear down whatever external access path you opened so the Aurora cluster returns to private-only connectivity.

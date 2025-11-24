@@ -7,7 +7,6 @@ locals {
     dlq_lambda        = module.lambda.dlq_function_name
     dynamodb_table    = module.idempotency_table.table_name
     aurora_identifier = module.aurora.aurora_cluster_id
-    rds_proxy_name    = module.aurora.db_proxy_name
   }
 }
 
@@ -173,11 +172,10 @@ resource "aws_cloudwatch_dashboard" "iot_pipeline" {
         width  = 12
         height = 6
         properties = {
-          title = "RDS Connections"
+          title = "RDS Connections & Capacity"
           metrics = [
             ["AWS/RDS", "DatabaseConnections", "DBClusterIdentifier", local.iot_dashboard.aurora_identifier, { stat = "Maximum", label = "Cluster Connections" }],
-            ["AWS/RDS", "ClientConnections", "DBProxyName", local.iot_dashboard.rds_proxy_name, { stat = "Average", label = "Proxy Clients" }],
-            ["AWS/RDS", "DatabaseConnections", "DBProxyName", local.iot_dashboard.rds_proxy_name, { stat = "Average", label = "Proxy DB Sessions" }]
+            ["AWS/RDS", "ServerlessDatabaseCapacity", "DBClusterIdentifier", local.iot_dashboard.aurora_identifier, { stat = "Average", label = "Serverless ACUs", yAxis = "right" }]
           ]
           view    = "timeSeries"
           stacked = false

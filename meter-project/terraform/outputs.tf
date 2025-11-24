@@ -59,10 +59,6 @@ output "aurora_cluster_id" {
   value = module.aurora.aurora_cluster_id
 }
 
-output "aurora_proxy_endpoint" {
-  value = module.aurora.db_proxy_endpoint
-}
-
 output "iot_alarms_topic_arn" {
   description = "SNS topic ARN used by CloudWatch alarms"
   value       = aws_sns_topic.iot_alarms.arn

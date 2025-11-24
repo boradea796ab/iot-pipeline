@@ -1,12 +1,16 @@
 import json
+import logging
 import os
 import random
 import time
-
-import pymysql
+import uuid
 
 import boto3
+import pymysql
 from botocore.exceptions import ClientError
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 _dynamodb = boto3.resource("dynamodb")
 _idempotency_table_name = os.environ.get("IDEMPOTENCY_TABLE")
@@ -99,7 +103,6 @@ def _close_cached_connection():
             _db_conn = None
 
 
-
 def get_db_connection():
     """Create a new DB connection each invocation (fast for Aurora Serverless v2)."""
     global _db_conn
@@ -111,7 +114,7 @@ def get_db_connection():
         except Exception:
             _close_cached_connection()
 
-    ssl_params = {"ca": "/etc/pki/tls/cert.pem"} if DB_PROXY_ENDPOINT else None
+    # ssl_params = {"ca": "/etc/pki/tls/cert.pem"} if DB_PROXY_ENDPOINT else None
 
     _db_conn = pymysql.connect(
         host=DB_PROXY_ENDPOINT or DB_HOST,
@@ -121,7 +124,7 @@ def get_db_connection():
         port=DB_PORT,
         connect_timeout=5,
         cursorclass=pymysql.cursors.DictCursor,
-        ssl=ssl_params,
+        # ssl=ssl_params,
     )
     return _db_conn
 
@@ -131,7 +134,7 @@ def save_reading_to_db(conn, message_id, payload_dict):
     with conn.cursor() as cur:
         sql = f"""
             INSERT INTO {READINGS_TABLE} (
-                id,
+                message_id,
                 payload,
                 created_at
             ) VALUES (%s, %s, NOW())
@@ -140,37 +143,83 @@ def save_reading_to_db(conn, message_id, payload_dict):
     conn.commit()
 
 
+def _process_payload(conn, message_id: str, body: str, request_id: str):
+    t_start = time.time()
+    print(f"Processing message: {body}")
+    logger.info(
+        json.dumps(
+            {
+                "event": "ingest_start",
+                "message_id": message_id,
+                "request_id": request_id,
+                "timestamp_ms": int(t_start * 1000),
+            }
+        )
+    )
+
+    if not _reserve_message(message_id):
+        print(f"⏭️  Skipping message {message_id}: idempotency record already exists.")
+        logger.info(
+            json.dumps(
+                {
+                    "event": "ingest_skip",
+                    "reason": "idempotent",
+                    "message_id": message_id,
+                    "request_id": request_id,
+                }
+            )
+        )
+        return
+
+    try:
+        payload = json.loads(body)
+
+        # 🧠 Simulate transient failure ~30% of the time
+        if random.random() < 0.3:
+            raise ValueError("💥 Simulated random failure")
+
+        save_reading_to_db(conn, message_id, payload)
+        print(f"💾 Saved to Aurora: {message_id}")
+
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        if isinstance(e, pymysql.MySQLError):
+            _close_cached_connection()
+
+        logger.error(
+            json.dumps(
+                {
+                    "event": "ingest_failure",
+                    "message_id": message_id,
+                    "request_id": request_id,
+                    "error": str(e),
+                }
+            )
+        )
+        raise
+    else:
+        _mark_processed(message_id, body)
+        duration_ms = int((time.time() - t_start) * 1000)
+        logger.info(
+            json.dumps(
+                {
+                    "event": "ingest_success",
+                    "message_id": message_id,
+                    "request_id": request_id,
+                    "duration_ms": duration_ms,
+                }
+            )
+        )
+
+
 def lambda_handler(event, context):
     conn = get_db_connection()
+    records = event.get("Records", [])
+    request_id = getattr(context, "aws_request_id", str(uuid.uuid4()))
 
-    for record in event.get("Records", []):
+    for record in records:
         body = record["body"]
         message_id = record["messageId"]
-        print(f"Processing message: {body}")
+        _process_payload(conn, message_id, body, request_id)
 
-        if not _reserve_message(message_id):
-            print(f"⏭️  Skipping message {message_id}: idempotency record already exists.")
-            continue
-
-        try:
-            payload = json.loads(body)
-
-            # 🧠 Simulate transient failure ~30% of the time
-            if random.random() < 0.3:
-                raise ValueError("💥 Simulated random failure")
-
-            # Save to Aurora
-            save_reading_to_db(conn, message_id, payload)
-            print(f"💾 Saved to Aurora: {message_id}")
-
-        except Exception as e:
-            print(f"❌ Error: {e}")
-            if isinstance(e, pymysql.MySQLError):
-                _close_cached_connection()
-
-            # re-raise so AWS Lambda marks batch as failed → SQS redrive policy handles DLQ
-            raise
-        else:
-            _mark_processed(message_id, body)
-
-    return {"status": "done"}
+    return {"status": "done", "processed": len(records)}

@@ -17,7 +17,7 @@ resource "aws_security_group" "aurora" {
     from_port       = var.aurora_port
     to_port         = var.aurora_port
     protocol        = "tcp"
-    security_groups = [var.lambda_security_group_id, aws_security_group.aurora_proxy.id]
+    security_groups = [var.lambda_security_group_id]
   }
 
   egress {
@@ -30,63 +30,6 @@ resource "aws_security_group" "aurora" {
   tags = {
     Name = "${var.resource_name_prefix}-aurora-sg"
   }
-}
-
-resource "aws_security_group" "aurora_proxy" {
-  name        = "${var.resource_name_prefix}-aurora-proxy-sg"
-  description = "Allows Lambda to connect to RDS Proxy"
-  vpc_id      = var.vpc_id
-
-  ingress {
-    description     = "Lambda access to RDS Proxy"
-    from_port       = var.aurora_port
-    to_port         = var.aurora_port
-    protocol        = "tcp"
-    security_groups = [var.lambda_security_group_id]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Name = "${var.resource_name_prefix}-aurora-proxy-sg"
-  }
-}
-
-resource "aws_iam_role" "aurora_proxy" {
-  name = "${var.resource_name_prefix}-aurora-proxy-role"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect    = "Allow"
-      Principal = { Service = "rds.amazonaws.com" }
-      Action    = "sts:AssumeRole"
-    }]
-  })
-}
-
-resource "aws_iam_role_policy" "aurora_proxy" {
-  name = "${var.resource_name_prefix}-aurora-proxy-policy"
-  role = aws_iam_role.aurora_proxy.id
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect   = "Allow"
-        Action   = ["secretsmanager:GetSecretValue"],
-        Resource = aws_secretsmanager_secret.credentials.arn
-      },
-      {
-        Effect   = "Allow"
-        Action   = ["kms:Decrypt"],
-        Resource = "*"
-      }
-    ]
-  })
 }
 
 resource "random_password" "master" {
@@ -121,7 +64,7 @@ resource "aws_rds_cluster" "this" {
   copy_tags_to_snapshot        = true
   preferred_backup_window      = "03:00-04:00"
   preferred_maintenance_window = "sun:04:30-sun:05:30"
-  enable_http_endpoint         = false
+  enable_http_endpoint         = true
   # for external access- do not enable for production
   # enable_http_endpoint = true
 
@@ -156,36 +99,4 @@ resource "aws_secretsmanager_secret_version" "credentials" {
   })
 
   depends_on = [aws_rds_cluster.this]
-}
-
-resource "aws_db_proxy" "this" {
-  name                   = "${var.resource_name_prefix}-aurora-proxy"
-  debug_logging          = false
-  engine_family          = "MYSQL"
-  idle_client_timeout    = 1800
-  require_tls            = true
-  role_arn               = aws_iam_role.aurora_proxy.arn
-  vpc_security_group_ids = [aws_security_group.aurora_proxy.id]
-  vpc_subnet_ids         = var.private_subnet_ids
-
-  auth {
-    secret_arn = aws_secretsmanager_secret.credentials.arn
-    iam_auth   = "DISABLED"
-  }
-}
-
-resource "aws_db_proxy_default_target_group" "this" {
-  db_proxy_name = aws_db_proxy.this.name
-
-  connection_pool_config {
-    connection_borrow_timeout    = 120
-    max_connections_percent      = 90
-    max_idle_connections_percent = 50
-  }
-}
-
-resource "aws_db_proxy_target" "cluster" {
-  db_proxy_name         = aws_db_proxy.this.name
-  target_group_name     = aws_db_proxy_default_target_group.this.name
-  db_cluster_identifier = aws_rds_cluster.this.id
 }

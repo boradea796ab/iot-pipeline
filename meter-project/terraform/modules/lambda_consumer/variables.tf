@@ -50,14 +50,20 @@ variable "readings_table_name" {
   type        = string
 }
 
-variable "db_proxy_endpoint" {
-  description = "Optional RDS Proxy endpoint for shared DB connections"
-  type        = string
-  default     = ""
-}
-
 variable "dlq_max_attempts" {
   description = "Number of times the DLQ processor retries a message before parking it"
   type        = number
   default     = 3
+}
+
+variable "consumer_max_batch_size" {
+  description = "Maximum number of SQS messages the consumer drains per invocation"
+  type        = number
+  default     = 100
+}
+
+variable "consumer_batch_window_seconds" {
+  description = "Maximum batching window (seconds) before Lambda is invoked"
+  type        = number
+  default     = 5
 }

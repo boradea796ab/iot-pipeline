@@ -27,8 +27,8 @@ resource "aws_api_gateway_usage_plan" "iot_usage_plan" {
   description = "Usage plan for IoT ingestion clients"
 
   throttle_settings {
-    burst_limit = 5 # how many requests in a quick burst
-    rate_limit  = 2 # steady-state requests per second
+    burst_limit = 55 # allow short spikes slightly above steady state
+    rate_limit  = 50 # steady-state requests per second
   }
 
   quota_settings {
@@ -63,8 +63,8 @@ resource "aws_api_gateway_method_settings" "require_key_ingest" {
     metrics_enabled        = true
     logging_level          = "INFO"
     data_trace_enabled     = false
-    throttling_burst_limit = 5
-    throttling_rate_limit  = 2
+    throttling_burst_limit = 55
+    throttling_rate_limit  = 50
   }
 
   depends_on = [

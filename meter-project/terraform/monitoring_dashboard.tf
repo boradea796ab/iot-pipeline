@@ -53,22 +53,22 @@ resource "aws_cloudwatch_dashboard" "iot_pipeline" {
           period  = 60
         }
       },
-      # {
-      #   type   = "metric"
-      #   x      = 12
-      #   y      = 6
-      #   width  = 12
-      #   height = 6
-      #   properties = {
-      #     title = "DLQ - Depth"
-      #     metrics = [
-      #       ["AWS/SQS", "ApproximateNumberOfMessagesVisible", "QueueName", local.iot_dashboard.dlq_queue, { stat = "Sum", label = "DLQ Visible" }]
-      #     ]
-      #     view   = "singleValue"
-      #     region = var.region
-      #     period = 60
-      #   }
-      # },
+      {
+        type   = "metric"
+        x      = 12
+        y      = 6
+        width  = 12
+        height = 6
+        properties = {
+          title = "DLQ - Depth"
+          metrics = [
+            ["AWS/SQS", "ApproximateNumberOfMessagesVisible", "QueueName", local.iot_dashboard.dlq_queue, { stat = "Sum", label = "DLQ Visible" }]
+          ]
+          view   = "singleValue"
+          region = var.region
+          period = 60
+        }
+      },
       {
         type   = "metric"
         x      = 0
@@ -165,24 +165,24 @@ resource "aws_cloudwatch_dashboard" "iot_pipeline" {
           period  = 60
         }
       },
-      # {
-      #   type   = "metric"
-      #   x      = 0
-      #   y      = 24
-      #   width  = 12
-      #   height = 6
-      #   properties = {
-      #     title = "RDS - CPU & Memory"
-      #     metrics = [
-      #       ["AWS/RDS", "CPUUtilization", "DBClusterIdentifier", local.iot_dashboard.aurora_identifier, { stat = "Average", label = "CPU (%)" }],
-      #       [".", "FreeableMemory", ".", ".", { stat = "Average", label = "Free Mem (MB)", yAxis = "right" }]
-      #     ]
-      #     view    = "timeSeries"
-      #     stacked = false
-      #     region  = var.region
-      #     period  = 60
-      #   }
-      # },
+      {
+        type   = "metric"
+        x      = 0
+        y      = 24
+        width  = 12
+        height = 6
+        properties = {
+          title = "RDS - Transaction Latency & Throughput"
+          metrics = [
+            ["AWS/RDS", "CommitLatency", "DBClusterIdentifier", local.iot_dashboard.aurora_identifier, { stat = "Average", label = "Commit Latency (ms)" }],
+            [".", "CommitThroughput", ".", ".", { stat = "Average", label = "Commits/Second", yAxis = "right" }]
+          ]
+          view    = "timeSeries"
+          stacked = false
+          region  = var.region
+          period  = 60
+        }
+      },
       {
         type   = "metric"
         x      = 12

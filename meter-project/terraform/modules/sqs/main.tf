@@ -4,7 +4,7 @@ resource "aws_sqs_queue" "iot_queue" {
   message_retention_seconds  = 86400
   redrive_policy = jsonencode({
     deadLetterTargetArn = aws_sqs_queue.iot_dlq.arn
-    maxReceiveCount     = 3              # after 3 failures → DLQ
+    maxReceiveCount     = 1              # fail once → DLQ hands it to processor
   })
 }
 

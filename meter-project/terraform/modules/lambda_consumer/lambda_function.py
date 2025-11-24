@@ -217,6 +217,7 @@ def lambda_handler(event, context):
     records = event.get("Records", [])
     request_id = getattr(context, "aws_request_id", str(uuid.uuid4()))
     batch_size = len(records)
+    batch_failures = []
 
     if batch_size:
         logger.info(
@@ -232,6 +233,22 @@ def lambda_handler(event, context):
     for record in records:
         body = record["body"]
         message_id = record["messageId"]
-        _process_payload(conn, message_id, body, request_id)
+        try:
+            _process_payload(conn, message_id, body, request_id)
+        except Exception:
+            logger.warning(
+                json.dumps(
+                    {
+                        "event": "batch_item_failure",
+                        "message_id": message_id,
+                        "request_id": request_id,
+                    }
+                )
+            )
+            batch_failures.append({"itemIdentifier": message_id})
 
-    return {"status": "done", "processed": len(records)}
+    processed_successfully = len(records) - len(batch_failures)
+    response = {"status": "done", "processed": processed_successfully}
+    if batch_failures:
+        response["batchItemFailures"] = batch_failures
+    return response

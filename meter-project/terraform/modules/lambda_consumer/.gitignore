@@ -2,3 +2,4 @@ build/
 lambda_consumer.zip
 lambda_dlq_processor.zip
 __pycache__/
+vendor/

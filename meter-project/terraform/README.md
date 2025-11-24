@@ -109,6 +109,19 @@ aws dynamodb scan --table-name "$(terraform output -raw idempotency_table_name)"
   - The `iot-dlq-processor` Lambda now runs the same business logic as the primary consumer but operates directly on the DLQ. If it succeeds, the message is marked `PROCESSED` in DynamoDB; if it fails, the record stays in the DLQ for manual review.
 - Expected result: New items in DynamoDB for each processed message (with payload + TTL), consistent DLQ redrive behavior, and deterministic replays without duplicate processing.
 
+### Why the consumer commits one record at a time
+
+- The Lambda receives up to 100 SQS messages per invocation, but each message is deserialized, written to Aurora, and committed independently. This keeps every message wrapped in its own short transaction, so a failure affects only that item.
+- Partial-failure handling depends on this shape: when a DB insert or downstream validation fails, the handler can return a `batchItemFailures` entry for that `messageId` only. The rest of the batch is acknowledged and never retried, which prevents duplicate writes or DLQ floods.
+- Idempotency state in DynamoDB mirrors that same per-message contract. The consumer reserves an ID before writing and marks it `PROCESSED` only after its individual commit succeeds, so replays can safely skip previously ingested rows.
+- Even though Aurora could handle bulk inserts, the current load profile shows commit latency in the low milliseconds, so single-row commits keep the system simple while still meeting throughput targets. If transaction time ever becomes a bottleneck, we can revisit chunked inserts with fallbacks, but the default optimizes failure isolation over raw batch throughput.
+
+### Lambda code structure
+
+- The consumer and DLQ Lambdas now share a `code/` package that keeps each concern isolated and unit-testable (`models`, `idempotency`, `repository`, `processor`, and `batch_handler` modules). Each handler simply wires its dependencies once and delegates to `run_batch`, so business logic lives in small reusable classes instead of monolithic scripts.
+- The shared package is bundled into both Lambda artifacts via `build_lambdas.sh`, which copies the `code/` directory and vendored dependencies into `build/iot_consumer` and `build/dlq_processor`. Terraform then zips those folders and points the functions at `code.lambda_consumer.lambda_handler` / `code.lambda_dlq.lambda_handler`.
+- When making logic changes, edit the files under `terraform/modules/lambda_consumer/code/`, rerun the build script, and `terraform apply` to deploy both functions. This avoids drift between the primary consumer and DLQ processor while keeping the old single-file handlers around for reference if needed.
+
 ## Sample Signed Ingest Request
 - Description: Example request that includes the required HMAC headers expected by the custom Lambda authorizer.
 - Command:

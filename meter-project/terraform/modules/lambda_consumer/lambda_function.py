@@ -216,6 +216,18 @@ def lambda_handler(event, context):
     conn = get_db_connection()
     records = event.get("Records", [])
     request_id = getattr(context, "aws_request_id", str(uuid.uuid4()))
+    batch_size = len(records)
+
+    if batch_size:
+        logger.info(
+            json.dumps(
+                {
+                    "event": "batch_summary",
+                    "request_id": request_id,
+                    "batch_size": batch_size,
+                }
+            )
+        )
 
     for record in records:
         body = record["body"]

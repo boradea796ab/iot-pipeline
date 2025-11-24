@@ -65,5 +65,5 @@ variable "consumer_max_batch_size" {
 variable "consumer_batch_window_seconds" {
   description = "Maximum batching window (seconds) before Lambda is invoked"
   type        = number
-  default     = 5
+  default     = 20
 }

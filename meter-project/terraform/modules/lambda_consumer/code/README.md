@@ -12,6 +12,11 @@ Components:
 - `config.py` – strongly typed loaders for both the main consumer and DLQ Lambda environment variables.
 - `lambda_consumer.py` and `lambda_dlq.py` – new Lambda entrypoints that wire the above pieces together.
 
+Tests & usage:
+
+- Unit tests live under `terraform/modules/lambda_consumer/tests/` and are executed with pytest. `test_processor.py` targets the `ReadingProcessor` in isolation, while `test_batch_handler.py` covers the orchestrator logic with stubbed stores/processors.
+- Run them via `make test` from `v2/mp-production/` (which in turn calls `pytest terraform/modules/lambda_consumer/tests`). The project-level `pytest.ini` already enables verbose output, so you’ll see each test name plus inline debug prints.
+
 Next steps to adopt this refactor:
 
 1. Update the Lambda packaging scripts/terraform to include `code/` and point to the new handlers.

@@ -122,6 +122,18 @@ aws dynamodb scan --table-name "$(terraform output -raw idempotency_table_name)"
 - The shared package is bundled into both Lambda artifacts via `build_lambdas.sh`, which copies the `code/` directory and vendored dependencies into `build/iot_consumer` and `build/dlq_processor`. Terraform then zips those folders and points the functions at `code.lambda_consumer.lambda_handler` / `code.lambda_dlq.lambda_handler`.
 - When making logic changes, edit the files under `terraform/modules/lambda_consumer/code/`, rerun the build script, and `terraform apply` to deploy both functions. This avoids drift between the primary consumer and DLQ processor while keeping the old single-file handlers around for reference if needed.
 
+### Lambda unit tests & pipeline
+
+- Unit tests live in `terraform/modules/lambda_consumer/tests/` and are built on pytest. `test_processor.py` validates the `ReadingProcessor` (JSON parsing, simulated failure rate), while `test_batch_handler.py` exercises `run_batch` across success, idempotent skip, DLQ terminal failure, and retry paths. Each test prints the batch or repository state when run with `-s` for easier triage.
+- `pytest.ini` configures verbose test runs (`-vv -s`) so every invocation shows the test name plus the inline debug prints. Run everything locally with:
+  ```bash
+  cd v2/mp-production
+  source ../../aws/bin/activate  # optional if using the shared venv
+  make test          # uses defaults from pytest.ini
+  make test VERBOSE=1  # forces -vv -s even if PYTEST_FLAGS isn’t set
+  ```
+- The Make targets wire the whole pipeline: `make test` → `make build` (runs `terraform/modules/lambda_consumer/build_lambdas.sh`) → `make plan` (`terraform plan`), and `make deploy` chains all three. Final `terraform apply` stays manual so you can review the plan output before touching AWS.
+
 ## Sample Signed Ingest Request
 - Description: Example request that includes the required HMAC headers expected by the custom Lambda authorizer.
 - Command:

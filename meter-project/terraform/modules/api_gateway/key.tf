@@ -27,12 +27,12 @@ resource "aws_api_gateway_usage_plan" "iot_usage_plan" {
   description = "Usage plan for IoT ingestion clients"
 
   throttle_settings {
-    burst_limit = 55 # allow short spikes slightly above steady state
-    rate_limit  = 50 # steady-state requests per second
+    burst_limit = 200 # allow short spikes slightly above steady state
+    rate_limit  = 200 # steady-state requests per second
   }
 
   quota_settings {
-    limit  = 1000 # total requests per day
+    limit  = 1000000 # total requests per day
     period = "DAY"
   }
 

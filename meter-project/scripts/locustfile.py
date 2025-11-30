@@ -17,8 +17,8 @@ DEVICE_SECRETS = {
 }
 
 # 0.5–2 seconds between requests per user (can be adjusted)
-WAIT_MIN = float(os.getenv("WAIT_MIN", "0.2"))
-WAIT_MAX = float(os.getenv("WAIT_MAX", "1.0"))
+WAIT_MIN = float(os.getenv("WAIT_MIN", "1.0"))
+WAIT_MAX = float(os.getenv("WAIT_MAX", "2.0"))
 # --------------------------------------------------------------------------
 
 

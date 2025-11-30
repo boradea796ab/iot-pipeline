@@ -6,4 +6,5 @@ prometheus_client
 flower
 psutil
 eventlet>=0.33.0
+locust
 

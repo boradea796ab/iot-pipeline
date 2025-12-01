@@ -65,3 +65,8 @@ override.tf.json
 
 # VENV
 aws/
+
+# certs
+*/simulator
+*/iot-simulator/certs
+*/iot

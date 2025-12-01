@@ -1,6 +1,6 @@
 from locust import HttpUser, task, between
-import time, json, random, hmac, hashlib, base64, os
-from datetime import datetime
+import time, json, random, hmac, hashlib, base64, os, threading, atexit
+from pathlib import Path
 
 # --------------------------------------------------------------------------
 #  CONFIG
@@ -11,6 +11,8 @@ if not API_URL:
 
 API_URL = API_URL.rstrip("/") + "/prod/ingest"
 
+REQUEST_LOG_PATH = os.getenv("LOCUST_REQUEST_LOG")
+
 DEVICE_SECRETS = {
     "M001": "supersecret-key-m001",
     "M002": "anothersecret-key",
@@ -20,6 +22,40 @@ DEVICE_SECRETS = {
 WAIT_MIN = float(os.getenv("WAIT_MIN", "1.0"))
 WAIT_MAX = float(os.getenv("WAIT_MAX", "2.0"))
 # --------------------------------------------------------------------------
+
+
+class RequestRecorder:
+    """Append request/response metadata to a JSONL file in a thread-safe way."""
+
+    def __init__(self, log_path: Path):
+        self._path = log_path
+        self._path.parent.mkdir(parents=True, exist_ok=True)
+        self._file = self._path.open("a", encoding="utf-8")
+        self._lock = threading.Lock()
+
+    def log(self, record: dict) -> None:
+        payload = json.dumps(record, separators=(",", ":"), default=str)
+        with self._lock:
+            self._file.write(payload + "\n")
+            self._file.flush()
+
+    def close(self) -> None:
+        try:
+            self._file.close()
+        except Exception:
+            pass
+
+
+REQUEST_LOGGER = None
+if REQUEST_LOG_PATH:
+    REQUEST_LOGGER = RequestRecorder(Path(REQUEST_LOG_PATH))
+    atexit.register(REQUEST_LOGGER.close)
+
+
+def record_attempt(data: dict) -> None:
+    if REQUEST_LOGGER is None:
+        return
+    REQUEST_LOGGER.log(data)
 
 
 def sign_request(secret: str, device_id: str, timestamp: str) -> str:
@@ -65,4 +101,41 @@ class MeterUser(HttpUser):
             "x-signature": signature,
         }
 
-        self.client.post(endpoint, data=body, headers=headers, name="meter_ingest")
+        try:
+            response = self.client.post(endpoint, data=body, headers=headers, name="meter_ingest")
+        except Exception as exc:
+            record_attempt(
+                {
+                    "event": "request_error",
+                    "device_id": device_id,
+                    "payload": payload,
+                    "signature_timestamp": timestamp,
+                    "error": str(exc),
+                }
+            )
+            raise
+
+        message_id = None
+        response_error = None
+        response_text = response.text
+        if response.status_code == 200:
+            try:
+                data = response.json()
+                message_id = data.get("messageId")
+            except ValueError:
+                response_error = "Unable to decode JSON response"
+        else:
+            response_error = f"HTTP {response.status_code}"
+
+        record_attempt(
+            {
+                "event": "request_complete",
+                "device_id": device_id,
+                "message_id": message_id,
+                "payload": payload,
+                "signature_timestamp": timestamp,
+                "status_code": response.status_code,
+                "response_body": (response_text[:500] if response_text else ""),
+                "response_error": response_error,
+            }
+        )

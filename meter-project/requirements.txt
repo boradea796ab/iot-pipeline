@@ -7,4 +7,4 @@ flower
 psutil
 eventlet>=0.33.0
 locust
-
+boto3

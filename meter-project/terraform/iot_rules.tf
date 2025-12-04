@@ -1,3 +1,8 @@
+locals {
+  # Terraform version in this stack lacks regexreplace, so just swap hyphens
+  iot_rule_name_prefix = replace(var.project_name, "-", "_")
+}
+
 # Role that AWS IoT assumes to write to Kinesis + Timestream
 resource "aws_iam_role" "iot_rules_role" {
   name = "${var.project_name}-iot-rules-role"
@@ -37,7 +42,7 @@ resource "aws_iam_role_policy" "iot_rules_policy" {
 }
 
 resource "aws_iot_topic_rule" "meters_to_kinesis" {
-  name        = "${var.project_name}-meters-rule"
+  name        = "${local.iot_rule_name_prefix}_meters_rule"
   enabled     = true
   sql         = "SELECT * FROM 'meters/+/readings'"
   sql_version = "2016-03-23"
@@ -45,6 +50,6 @@ resource "aws_iot_topic_rule" "meters_to_kinesis" {
   kinesis {
     role_arn    = aws_iam_role.iot_rules_role.arn
     stream_name = aws_kinesis_stream.iot_telemetry.name
-    partition_key = "${topic()}"
+    partition_key = "topic()"
   }
 }

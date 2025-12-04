@@ -10,6 +10,10 @@ resource "aws_iot_thing" "sim_meter" {
 # IoT certificate + key pair
 resource "aws_iot_certificate" "sim_meter_cert" {
   active = true
+
+  lifecycle {
+    prevent_destroy = false
+  }
 }
 
 # Basic IoT policy for simulator (you can tighten later)
@@ -39,12 +43,22 @@ resource "aws_iot_policy" "sim_meter_policy" {
 resource "aws_iot_policy_attachment" "sim_meter_policy_attach" {
   policy = aws_iot_policy.sim_meter_policy.name
   target = aws_iot_certificate.sim_meter_cert.arn
+
+  depends_on = [
+    aws_iot_certificate.sim_meter_cert,
+    aws_iot_policy.sim_meter_policy
+  ]
 }
 
 # Attach certificate to thing
 resource "aws_iot_thing_principal_attachment" "sim_meter_thing_attach" {
   thing     = aws_iot_thing.sim_meter.name
   principal = aws_iot_certificate.sim_meter_cert.arn
+
+  depends_on = [
+    aws_iot_certificate.sim_meter_cert,
+    aws_iot_thing.sim_meter
+  ]
 }
 
 # Get IoT Core data endpoint (for MQTT over TLS)

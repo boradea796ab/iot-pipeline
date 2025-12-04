@@ -17,12 +17,11 @@ output "kinesis_stream_name" {
   description = "IoT telemetry Kinesis stream"
 }
 
-output "timestream_database" {
-  value       = aws_timestreamwrite_database.meter_data.database_name
-  description = "Timestream database name"
+output "influxdb_endpoint" {
+  value = aws_timestreaminfluxdb_db_instance.meterdb.endpoint
 }
 
-output "timestream_table_raw" {
-  value       = aws_timestreamwrite_table.raw_readings.table_name
-  description = "Timestream raw readings table"
+output "influxdb_port" {
+  value = aws_timestreaminfluxdb_db_instance.meterdb.port
 }
+

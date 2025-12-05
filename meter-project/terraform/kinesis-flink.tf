@@ -1,26 +1,26 @@
-# resource "aws_kinesisanalyticsv2_application" "flink_app" {
-#   name        = "${var.project_name}-flink"
-#   runtime_environment = "FLINK-1_18"   # choose the latest
-#   service_execution_role = aws_iam_role.kda_role.arn
+resource "aws_kinesisanalyticsv2_application" "flink_app" {
+  name        = "${var.project_name}-flink"
+  runtime_environment = "FLINK-1_18"   # choose the latest
+  service_execution_role = aws_iam_role.kda_role.arn
 
-#   application_configuration {
-#     application_code_configuration {
-#       code_content {
-#         s3_content_location {
-#           bucket_arn = aws_s3_bucket.flink_code_bucket.arn
-#           file_key   = "flink-app.jar"
-#         }
-#       }
-#       code_content_type = "ZIPFILE"
-#     }
+  application_configuration {
+    application_code_configuration {
+      code_content {
+        s3_content_location {
+          bucket_arn = aws_s3_bucket.flink_code_bucket.arn
+          file_key   = "flink-app2.jar"
+        }
+      }
+      code_content_type = "ZIPFILE"
+    }
 
-#     # VPC config required so Flink can connect to InfluxDB
-#     vpc_configuration {
-#       subnet_ids         = values(aws_subnet.private)[*].id
-#       security_group_ids = [aws_security_group.flink_sg.id]
-#     }
-#   }
-# }
+    # VPC config required so Flink can connect to InfluxDB
+    vpc_configuration {
+      subnet_ids         = values(aws_subnet.private)[*].id
+      security_group_ids = [aws_security_group.flink_sg.id]
+    }
+  }
+}
 
 resource "aws_iam_role" "kda_role" {
   name = "${var.project_name}-kda-role"
@@ -55,16 +55,35 @@ resource "aws_iam_role_policy" "kda_policy" {
       {
         Effect = "Allow"
         Action = [
-          "ec2:DescribeSubnets",
-          "ec2:DescribeSecurityGroups",
-          "ec2:CreateNetworkInterface",
-          "ec2:DeleteNetworkInterface",
-          "ec2:DescribeNetworkInterfaces",
-          "ec2:AssignPrivateIpAddresses",
-          "ec2:UnassignPrivateIpAddresses"
+    "ec2:DescribeRouteTables",
+    "ec2:ModifyNetworkInterfaceAttribute",
+    "ec2:AssignPrivateIpAddresses",
+    "ec2:UnassignPrivateIpAddresses"
         ]
         Resource = "*"
       },
+        {
+      "Sid": "VPCReadOnlyPermissions",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:DescribeVpcs",
+        "ec2:DescribeSubnets",
+        "ec2:DescribeSecurityGroups",
+        "ec2:DescribeDhcpOptions"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ENIReadWritePermissions",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:CreateNetworkInterface",
+        "ec2:CreateNetworkInterfacePermission",
+        "ec2:DescribeNetworkInterfaces",
+        "ec2:DeleteNetworkInterface"
+      ],
+      "Resource": "*"
+    },
       {
         Effect = "Allow"
         Action = [

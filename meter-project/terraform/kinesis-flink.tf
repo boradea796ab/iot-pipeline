@@ -1,47 +1,25 @@
-resource "aws_kinesisanalyticsv2_application" "flink_app" {
-  name        = "${var.project_name}-flink"
-  runtime_environment = "FLINK-1_18"   # choose the latest
-  service_execution_role = aws_iam_role.kda_role.arn
-
-  application_configuration {
-    application_code_configuration {
-      code_content {
-        s3_content_location {
-          bucket_arn = aws_s3_bucket.flink_code_bucket.arn
-          file_key   = "flink-app2.jar"
-        }
-      }
-      code_content_type = "ZIPFILE"
-    }
-
-    # VPC config required so Flink can connect to InfluxDB
-    vpc_configuration {
-      subnet_ids         = values(aws_subnet.private)[*].id
-      security_group_ids = [aws_security_group.flink_sg.id]
-    }
-  }
-}
-
-resource "aws_iam_role" "kda_role" {
-  name = "${var.project_name}-kda-role"
+resource "aws_iam_role" "lambda_role" {
+  name = "${var.project_name}-lambda-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Effect = "Allow"
-      Principal = { Service = "kinesisanalytics.amazonaws.com" }
-      Action = "sts:AssumeRole"
+      Effect    = "Allow"
+      Principal = { Service = "lambda.amazonaws.com" }
+      Action    = "sts:AssumeRole"
     }]
   })
 }
 
-resource "aws_iam_role_policy" "kda_policy" {
-  name = "${var.project_name}-kda-policy"
-  role = aws_iam_role.kda_role.id
+resource "aws_iam_role_policy" "lambda_policy" {
+  name = "${var.project_name}-lambda-policy"
+  role = aws_iam_role.lambda_role.id
 
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
+
+      # Read from Kinesis
       {
         Effect = "Allow"
         Action = [
@@ -52,44 +30,25 @@ resource "aws_iam_role_policy" "kda_policy" {
         ]
         Resource = aws_kinesis_stream.iot_telemetry.arn
       },
+
+      # CloudWatch Logs
       {
         Effect = "Allow"
         Action = [
-    "ec2:DescribeRouteTables",
-    "ec2:ModifyNetworkInterfaceAttribute",
-    "ec2:AssignPrivateIpAddresses",
-    "ec2:UnassignPrivateIpAddresses"
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
         ]
-        Resource = "*"
+        Resource = "arn:aws:logs:${var.flink_region}:*:*"
       },
-        {
-      "Sid": "VPCReadOnlyPermissions",
-      "Effect": "Allow",
-      "Action": [
-        "ec2:DescribeVpcs",
-        "ec2:DescribeSubnets",
-        "ec2:DescribeSecurityGroups",
-        "ec2:DescribeDhcpOptions"
-      ],
-      "Resource": "*"
-    },
-    {
-      "Sid": "ENIReadWritePermissions",
-      "Effect": "Allow",
-      "Action": [
-        "ec2:CreateNetworkInterface",
-        "ec2:CreateNetworkInterfacePermission",
-        "ec2:DescribeNetworkInterfaces",
-        "ec2:DeleteNetworkInterface"
-      ],
-      "Resource": "*"
-    },
+
+      # VPC ENI permissions (REQUIRED)
       {
         Effect = "Allow"
         Action = [
-          "s3:GetObject",
-          "s3:GetObjectVersion",
-          "s3:ListBucket"
+          "ec2:CreateNetworkInterface",
+          "ec2:DescribeNetworkInterfaces",
+          "ec2:DeleteNetworkInterface"
         ]
         Resource = "*"
       }
@@ -97,12 +56,11 @@ resource "aws_iam_role_policy" "kda_policy" {
   })
 }
 
-resource "aws_security_group" "flink_sg" {
-  name        = "${var.project_name}-flink-sg"
-  description = "Security group for Kinesis Analytics Flink application"
+resource "aws_security_group" "lambda_sg" {
+  name        = "${var.project_name}-lambda-sg"
+  description = "SG for Kinesis Lambda consumer"
   vpc_id      = aws_vpc.main.id
 
-  # Outbound allowed (required for S3, Kinesis, STS, CloudWatch, etc.)
   egress {
     from_port   = 0
     to_port     = 0
@@ -112,6 +70,65 @@ resource "aws_security_group" "flink_sg" {
 
   tags = {
     Project = var.project_name
-    Type    = "kda-flink"
+    Type    = "lambda"
   }
 }
+
+data "archive_file" "iot_consumer" {
+  type        = "zip"
+  source_dir  = "${path.module}/lambda_source"
+  output_path = "${path.module}/lambda_consumer.zip"
+}
+
+data "aws_ssm_parameter" "influxdb_write_url" {
+  name = "/smart-meter/iot/influxdb/write-url"
+}
+
+data "aws_ssm_parameter" "influxdb_token" {
+  name            = "/smart-meter/iot/influxdb/token"
+  with_decryption = true
+}
+
+resource "aws_lambda_function" "kinesis_to_influx" {
+  function_name    = "${var.project_name}-kinesis-to-influx"
+  role             = aws_iam_role.lambda_role.arn
+  runtime          = "python3.11"
+  handler          = "kinesis2timestream.lambda_handler"
+  timeout          = 60
+  memory_size      = 512
+  filename         = data.archive_file.iot_consumer.output_path
+  source_code_hash = data.archive_file.iot_consumer.output_base64sha256
+
+
+  vpc_config {
+    subnet_ids         = values(aws_subnet.private)[*].id
+    security_group_ids = [aws_security_group.lambda_sg.id]
+  }
+
+  environment {
+    variables = {
+      INFLUX_URL   = data.aws_ssm_parameter.influxdb_write_url.value
+      INFLUX_TOKEN = data.aws_ssm_parameter.influxdb_token.value
+    }
+  }
+}
+
+resource "aws_lambda_event_source_mapping" "kinesis_trigger" {
+  event_source_arn  = aws_kinesis_stream.iot_telemetry.arn
+  function_name     = aws_lambda_function.kinesis_to_influx.arn
+  starting_position = "LATEST"
+
+  batch_size                         = 100
+  maximum_batching_window_in_seconds = 5
+}
+
+variable "flink_app_name" {
+  type    = string
+  default = "smart-meter-iot-flink"
+}
+
+variable "flink_region" {
+  type    = string
+  default = "ap-northeast-1"
+}
+

@@ -4,22 +4,14 @@ resource "aws_security_group" "influxdb_sg" {
   vpc_id      = aws_vpc.main.id
 
   ingress {
-    description = "Allow inbound HTTP Line Protocol (InfluxDB port 8086)"
+    description = "Allow Lambda consumer to write Line Protocol to InfluxDB"
     from_port   = 8086
     to_port     = 8086
     protocol    = "tcp"
-    cidr_blocks = [aws_vpc.main.cidr_block]   # Flink app must run in same VPC
+    security_groups = [
+      aws_security_group.lambda_sg.id
+    ]
   }
-
-  ingress {
-  description = "Allow Flink app to send Line Protocol to InfluxDB"
-  from_port   = 8086
-  to_port     = 8086
-  protocol    = "tcp"
-  security_groups = [
-    aws_security_group.flink_sg.id
-  ]
-}
 
 
   egress {

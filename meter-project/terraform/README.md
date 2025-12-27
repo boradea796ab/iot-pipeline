@@ -24,8 +24,7 @@ It captures **all major components**, including:
 * IoT Core ingestion
 * Kinesis Stream
 * InfluxDB (Timestream for InfluxDB)
-* Managed Flink setup
-* JAR build instructions
+* Lambda consumer
 * IAM + VPC requirements
 * Network pitfalls and fixes
 
@@ -42,9 +41,8 @@ This project shows how to build a modern, scalable ingestion system that support
 * **AWS IoT Core → MQTT ingestion**
 * **Kinesis Data Streams**
 * **Amazon Timestream for InfluxDB (Managed InfluxDB)**
-* **Amazon Managed Service for Apache Flink**
+* **AWS Lambda Kinesis consumer**
 * **Terraform IaC**
-* **Java Flink job (JAR) deployed from S3**
 * **VPC networking with private subnets + S3 VPC endpoint**
 
 ---
@@ -62,7 +60,7 @@ AWS IoT Core → IoT Rules Engine
 Kinesis Data Stream    Timestream for InfluxDB (future)
      |
      v
-Managed Apache Flink Application (in VPC)
+AWS Lambda (Kinesis trigger)
      |
      v
 InfluxDB (Timestream for InfluxDB)
@@ -147,11 +145,53 @@ Terraform provisions:
 
 * **db.influx.medium** instance
 * private VPC subnet placement
-* SG inbound rules from Flink application
+* SG inbound rules from Lambda function
 * Alphanumeric-only admin password
 * Network access restricted to VPC only
 
-Flink writes meter readings into InfluxDB using Influx Line Protocol (planned next).
+### InfluxDB token creation (CloudShell quirk)
+
+Creating the CLI config in AWS CloudShell was flaky: the only reliable flow was to close all CloudShell tabs and open a fresh one with the `+` button, then run the `influx` commands. Use the admin username/password from the Terraform lock file when creating the config; verify auth works by running `influx bucket list` (buckets should show up). After that, create a token with both read and write permissions for the bucket you plan to use.
+
+### Store InfluxDB secrets in SSM Parameter Store
+
+Keep the Lambda environment free of hardcoded secrets by writing them to SSM (you run these commands):
+
+```bash
+aws ssm put-parameter --name "/smart-meter/iot/influxdb/write-url" --type "SecureString" --value "<YOUR_INFLUX_WRITE_URL>" --overwrite --region ap-northeast-1
+aws ssm put-parameter --name "/smart-meter/iot/influxdb/token" --type "SecureString" --value "<YOUR_INFLUX_TOKEN>" --overwrite --region ap-northeast-1
+aws ssm get-parameter --name "/smart-meter/iot/influxdb/write-url" --with-decryption --region ap-northeast-1
+```
+
+Terraform reads these parameters and injects them into the Lambda environment automatically.
+
+### Lambda payload test
+
+To verify the Lambda parses Kinesis records correctly, invoke it with a sample event like:
+
+```json
+{
+  "Records": [
+    {
+      "kinesis": {
+        "partitionKey": "meter-001",
+        "data": "eyJtZXRlcklkIjogIm1ldGVyLTAwMSIsICJ0cyI6IDE3MzYyMjU3OTAwMDAsICJrV2giOiAxMi40NSwgInZvbHRhZ2UiOiAyMjAuMywgImN1cnJlbnQiOiAxLjg1LCAic3RhdHVzIjogIm9rIn0=",
+        "approximateArrivalTimestamp": 1736225790
+      },
+      "eventSource": "aws:kinesis",
+      "eventID": "shardId-000000000000:1234567890",
+      "eventVersion": "1.0",
+      "eventName": "aws:kinesis:record",
+      "awsRegion": "ap-northeast-1",
+      "eventSourceARN": "arn:aws:kinesis:ap-northeast-1:123456789012:stream/iot-telemetry"
+    }
+  ]
+}
+```
+
+The `data` field is base64-encoded; decoding it reveals the JSON the Lambda actually writes to InfluxDB.
+
+Lambda writes meter readings into InfluxDB using Influx Line Protocol.
 
 ---
 
@@ -179,133 +219,23 @@ Allows private subnets to reach AWS APIs (Kinesis, S3, CloudWatch).
 
 ### ✔ S3 VPC Endpoint
 
-Required so Flink can download its JAR from S3 without internet.
+Required so private workloads (and Lambda if packaged or logging to S3) can reach S3 without internet.
 
 ```hcl
 resource "aws_vpc_endpoint" "s3" {
-   service_name     = "com.amazonaws.<region>.s3"
+   service_name      = "com.amazonaws.<region>.s3"
    vpc_endpoint_type = "Gateway"
    route_table_ids   = [aws_route_table.private.id]
 }
 ```
 
-### ✔ SG for Flink
-
-Outbound open → required for VPC → InfluxDB + AWS APIs.
-
----
-
-# 🚀 Managed Flink (Replaces deprecated KDA)
-
-AWS has deprecated:
-
-```
-Kinesis Data Analytics for Apache Flink
-```
-
-It is replaced by:
-
-```
-Amazon Managed Service for Apache Flink
-```
-
-Terraform does NOT yet support Managed Flink, so:
-
-> The Flink application must currently be created via AWS Console (or AWS CLI).
-
-Flink runs inside the VPC private subnets and connects to:
-
-* Kinesis Data Stream (source)
-* S3 (to download the JAR)
-* InfluxDB (sink)
-
----
-
-# 💥 Critical IAM Requirements for Flink (VPC)
-
-Your execution role must include ALL permissions documented here:
-[https://docs.aws.amazon.com/managed-flink/latest/java/vpc-permissions.html](https://docs.aws.amazon.com/managed-flink/latest/java/vpc-permissions.html)
-
-Specifically:
-
-```json
-{
-  "Effect": "Allow",
-  "Action": [
-    "ec2:CreateNetworkInterface",
-    "ec2:DescribeNetworkInterfaces",
-    "ec2:DeleteNetworkInterface",
-    "ec2:DescribeVpcs",
-    "ec2:DescribeSubnets",
-    "ec2:DescribeSecurityGroups",
-    "ec2:DescribeRouteTables",
-    "ec2:ModifyNetworkInterfaceAttribute",
-    "ec2:AssignPrivateIpAddresses",
-    "ec2:UnassignPrivateIpAddresses"
-  ],
-  "Resource": "*"
-}
-```
-
-Without these, the Managed Flink console will throw:
-
-```
-Kinesis Data Analytics service does not have
-the necessary privileges to configure VPC connectivity.
-```
-
-This was the final issue that prevented deployment — now fixed.
-
----
-
-# 📦 Flink JAR / Code Setup
-
-## Directory Structure
-
-```
-flink-app/
-│
-├── pom.xml
-│
-└── src/main/java/com/iot/MinimalFlinkJob.java
-```
-
-## Build
-
-```bash
-mvn clean package
-```
-
-Output:
-
-```
-target/iot-flink-app-1.0.0-jar-with-dependencies.jar
-```
-
-Rename & upload:
-
-```bash
-cp target/.../jar-with-dependencies.jar flink-app.jar
-aws s3 cp flink-app.jar s3://smart-meter-iot-flink-code-<id>/flink-app.jar
-```
-
-## Requirements for a valid Flink JAR
-
-* must contain a manifest with `Main-Class`
-* must be a real jar (not placeholder zip)
-* must include Flink dependencies (uber jar)
-
-Console error if invalid:
-
-```
-No valid JAR file found in the zip file.
-```
+### ✔ SG for Lambda
 
 ---
 
 # 🎯 Deployment Summary
 
-### 1. Terraform creates everything **except** the Flink app:
+### 1. Terraform creates everything end-to-end:
 
 * IoT Core + certs
 * IoT Policy + Rule
@@ -313,26 +243,17 @@ No valid JAR file found in the zip file.
 * InfluxDB
 * VPC + subnets + route tables + NAT + endpoints
 * IAM roles + policies
-* S3 bucket for JAR
-
-### 2. Build Flink job and upload JAR to S3
-
-### 3. Create Managed Flink application manually in AWS Console (until Terraform support arrives)
-
-* Select VPC subnets
-* Select SG
-* Provide role `smart-meter-iot-kda-role`
-* Provide JAR location
+* Lambda consumer triggered by Kinesis
+* SSM parameters for Influx URL/token (read at deploy time)
+* S3 bucket (if you package artifacts there)
 
 ---
 
 # 🧪 Next Steps (Phase 2)
 
-* Implement Flink job that reads from Kinesis
-* Transform meter readings
-* Write Influx Line Protocol to InfluxDB
+* Enhance Lambda parsing/validation
+* Expand metrics/observability (CloudWatch, alarms)
 * Build Grafana dashboards
-* Add monitoring (CloudWatch + metrics)
 * Add error handling (DLQ Kinesis stream)
 
 ---
@@ -345,10 +266,8 @@ This project now successfully covers:
 * Stream ingestion buffer (Kinesis)
 * Private time-series storage (InfluxDB)
 * End-to-end VPC isolation
-* Fully working Flink deployment
-* Correct IAM + networking for managed Flink
+* Lambda-based processing path (Kinesis → InfluxDB)
 
 This is a **professional-grade IoT ingestion pipeline**, matching real industry patterns used by smart-meter / smart-grid companies.
 
 ---
-

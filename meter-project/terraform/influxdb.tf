@@ -28,4 +28,3 @@ resource "random_password" "master" {
   upper   = true
   numeric = true
 }
-

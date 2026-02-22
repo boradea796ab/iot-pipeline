@@ -149,9 +149,46 @@ Terraform provisions:
 * Alphanumeric-only admin password
 * Network access restricted to VPC only
 
-### InfluxDB token creation (CloudShell quirk)
+### InfluxDB token creation (CloudShell setup)
 
-Creating the CLI config in AWS CloudShell was flaky: the only reliable flow was to close all CloudShell tabs and open a fresh one with the `+` button, then run the `influx` commands. Use the admin username/password from the Terraform lock file when creating the config; verify auth works by running `influx bucket list` (buckets should show up). After that, create a token with both read and write permissions for the bucket you plan to use.
+To access influxDB correctly via cloudshell, it is necessary to first craete a cloudshell environment with the same VPC/subnet as the influxDB instance. 
+
+```bash
+# 0) Set values from Terraform outputs/state
+export INFLUX_HOST_URL="https://<YOUR_INFLUX_ENDPOINT>:8086"
+export INFLUX_ORG="VCC"
+export INFLUX_BUCKET="smart-meter-iot-influxdb-bucket"
+
+# 1) Create admin config (prompts for username/password)
+# Username is "admin", password is the Terraform-generated master password.
+influx config create \
+  --config-name smart-meter-admin \
+  --host-url "$INFLUX_HOST_URL" \
+  --org "$INFLUX_ORG" \
+  --username-password \
+  --active
+
+# 2) Activate config explicitly (if multiple configs exist)
+influx config set -n smart-meter-iot-influxdb --active
+
+# 3) Verify access and list buckets
+influx bucket list
+
+# 4) Capture the target bucket ID
+BUCKET_ID=$(influx bucket list --name "$INFLUX_BUCKET" --json | jq -r '.[0].id')
+echo "Bucket ID: $BUCKET_ID"
+
+# 5) Create a token scoped to this bucket (read + write)
+influx auth create \
+  --description "lambda-rw-$INFLUX_BUCKET" \
+  --org "$INFLUX_ORG" \
+  --read-bucket "$BUCKET_ID" \
+  --write-bucket "$BUCKET_ID"
+```
+
+Notes:
+- `influx auth create` prints the token value once. Store it immediately (for example in SSM Parameter Store).
+- If `jq` is unavailable in CloudShell, copy the bucket ID manually from `influx bucket list`.
 
 ### Store InfluxDB secrets in SSM Parameter Store
 

@@ -1,0 +1,23 @@
+repos:
+  - repo: local
+    hooks:
+      - id: terraform-fmt
+        name: terraform fmt (check)
+        entry: bash -c 'TF_DIR="$(git rev-parse --show-toplevel)/terraform"; [ -d "$TF_DIR" ] || TF_DIR="$(git rev-parse --show-toplevel)/meter-project/terraform"; cd "$TF_DIR" && terraform fmt -recursive -check'
+        language: system
+        pass_filenames: false
+      - id: terraform-validate
+        name: terraform validate
+        entry: bash -c 'TF_DIR="$(git rev-parse --show-toplevel)/terraform"; [ -d "$TF_DIR" ] || TF_DIR="$(git rev-parse --show-toplevel)/meter-project/terraform"; cd "$TF_DIR" && terraform init -backend=false -input=false >/dev/null && terraform validate -no-color'
+        language: system
+        pass_filenames: false
+      - id: terraform-tflint
+        name: terraform tflint
+        entry: bash -c 'TF_DIR="$(git rev-parse --show-toplevel)/terraform"; [ -d "$TF_DIR" ] || TF_DIR="$(git rev-parse --show-toplevel)/meter-project/terraform"; cd "$TF_DIR" && tflint --init >/dev/null && tflint --recursive --config=.tflint.hcl'
+        language: system
+        pass_filenames: false
+      - id: terraform-tfsec
+        name: terraform tfsec
+        entry: bash -c 'TF_DIR="$(git rev-parse --show-toplevel)/terraform"; [ -d "$TF_DIR" ] || TF_DIR="$(git rev-parse --show-toplevel)/meter-project/terraform"; cd "$TF_DIR" && tfsec --config-file .tfsec.yml .'
+        language: system
+        pass_filenames: false

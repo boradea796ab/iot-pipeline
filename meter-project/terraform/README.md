@@ -1,5 +1,26 @@
 ## Terraform usage
 
+## Terraform quality gates
+
+Baseline guardrails for this repository:
+
+- Terraform/provider versions are pinned in `terraform/versions.tf`.
+- Linting config lives at `terraform/.tflint.hcl`.
+- Security scanning config lives at `terraform/.tfsec.yml`.
+- Pre-commit hooks are defined in `.pre-commit-config.yaml`.
+
+Run once from repo root:
+
+```bash
+pre-commit install
+```
+
+Run all checks manually:
+
+```bash
+pre-commit run --all-files
+```
+
 Always tell Terraform which AWS region to use so it talks to the same region where the IoT stack was provisioned. The IoT Core APIs that manage certificates/policy attachments are region-scoped, so running `terraform destroy` with the wrong region (for example defaulting to `us-east-1` while the certificate lives in `ap-northeast-1`) produces `InvalidRequestException: Invalid Target` errors while reading `aws_iot_policy_attachment` resources.
 
 You can provide the region by:

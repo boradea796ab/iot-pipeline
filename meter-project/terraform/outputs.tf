@@ -1,10 +1,10 @@
 output "iot_endpoint" {
   description = "AWS IoT Core data endpoint (MQTT over TLS)"
-  value       = data.aws_iot_endpoint.data.endpoint_address
+  value       = module.ingestion.iot_endpoint
 }
 
 output "sim_thing_name" {
-  value = aws_iot_thing.sim_meter.name
+  value = module.ingestion.sim_thing_name
 }
 
 output "sim_cert_files_path" {
@@ -13,7 +13,7 @@ output "sim_cert_files_path" {
 
 
 output "kinesis_stream_name" {
-  value       = aws_kinesis_stream.iot_telemetry.name
+  value       = module.ingestion.kinesis_stream_name
   description = "IoT telemetry Kinesis stream"
 }
 
@@ -24,4 +24,3 @@ output "influxdb_endpoint" {
 output "influxdb_port" {
   value = aws_timestreaminfluxdb_db_instance.meterdb.port
 }
-

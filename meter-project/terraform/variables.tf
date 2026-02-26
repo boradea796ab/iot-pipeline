@@ -48,6 +48,18 @@ variable "vpc_cidr" {
   default     = "10.0.0.0/16"
 }
 
+variable "kinesis_shard_count" {
+  description = "Shard count for IoT telemetry Kinesis stream."
+  type        = number
+  default     = 1
+}
+
+variable "kinesis_retention_hours" {
+  description = "Retention period (hours) for IoT telemetry Kinesis stream."
+  type        = number
+  default     = 24
+}
+
 variable "influxdb_organization" {
   description = "InfluxDB organization name."
   type        = string

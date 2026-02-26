@@ -11,3 +11,7 @@ private_subnet_cidrs = [
 # Timeseries (InfluxDB) sizing defaults for current project.
 influxdb_instance_class       = "db.influx.medium"
 influxdb_allocated_storage_gb = 20
+
+# Streaming defaults for current project.
+kinesis_shard_count     = 1
+kinesis_retention_hours = 24

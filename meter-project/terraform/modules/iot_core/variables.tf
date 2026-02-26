@@ -13,14 +13,12 @@ variable "certs_output_dir" {
   type        = string
 }
 
-variable "kinesis_shard_count" {
-  description = "Shard count for the telemetry stream."
-  type        = number
-  default     = 1
+variable "kinesis_stream_name" {
+  description = "Kinesis stream name used by the IoT rule action."
+  type        = string
 }
 
-variable "kinesis_retention_hours" {
-  description = "Kinesis stream retention in hours."
-  type        = number
-  default     = 24
+variable "kinesis_stream_arn" {
+  description = "Kinesis stream ARN used by IoT rules IAM policy."
+  type        = string
 }

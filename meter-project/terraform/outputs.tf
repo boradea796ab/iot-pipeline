@@ -1,10 +1,10 @@
 output "iot_endpoint" {
   description = "AWS IoT Core data endpoint (MQTT over TLS)"
-  value       = module.ingestion.iot_endpoint
+  value       = module.iot_core.iot_endpoint
 }
 
 output "sim_thing_name" {
-  value = module.ingestion.sim_thing_name
+  value = module.iot_core.sim_thing_name
 }
 
 output "sim_cert_files_path" {
@@ -13,7 +13,7 @@ output "sim_cert_files_path" {
 
 
 output "kinesis_stream_name" {
-  value       = module.ingestion.kinesis_stream_name
+  value       = module.streaming.kinesis_stream_name
   description = "IoT telemetry Kinesis stream"
 }
 

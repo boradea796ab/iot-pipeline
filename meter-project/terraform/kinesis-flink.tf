@@ -28,7 +28,7 @@ resource "aws_iam_role_policy" "lambda_policy" {
           "kinesis:DescribeStream",
           "kinesis:ListStreams"
         ]
-        Resource = module.ingestion.kinesis_stream_arn
+        Resource = module.streaming.kinesis_stream_arn
       },
 
       # CloudWatch Logs
@@ -96,7 +96,7 @@ resource "aws_lambda_function" "kinesis_to_influx" {
 }
 
 resource "aws_lambda_event_source_mapping" "kinesis_trigger" {
-  event_source_arn  = module.ingestion.kinesis_stream_arn
+  event_source_arn  = module.streaming.kinesis_stream_arn
   function_name     = aws_lambda_function.kinesis_to_influx.arn
   starting_position = "LATEST"
 

@@ -79,20 +79,6 @@ resource "local_file" "sim_public_key" {
   content  = aws_iot_certificate.sim_meter_cert.public_key
 }
 
-resource "aws_kinesis_stream" "iot_telemetry" {
-  name             = "${var.project_name}-telemetry"
-  shard_count      = var.kinesis_shard_count
-  retention_period = var.kinesis_retention_hours
-
-  stream_mode_details {
-    stream_mode = "PROVISIONED"
-  }
-
-  tags = {
-    Project = var.project_name
-  }
-}
-
 resource "aws_iam_role" "iot_rules_role" {
   name = "${var.project_name}-iot-rules-role"
 
@@ -123,7 +109,7 @@ resource "aws_iam_role_policy" "iot_rules_policy" {
           "kinesis:PutRecord",
           "kinesis:PutRecords"
         ]
-        Resource = aws_kinesis_stream.iot_telemetry.arn
+        Resource = var.kinesis_stream_arn
       }
     ]
   })
@@ -137,7 +123,7 @@ resource "aws_iot_topic_rule" "meters_to_kinesis" {
 
   kinesis {
     role_arn      = aws_iam_role.iot_rules_role.arn
-    stream_name   = aws_kinesis_stream.iot_telemetry.name
+    stream_name   = var.kinesis_stream_name
     partition_key = "topic()"
   }
 }

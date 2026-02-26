@@ -56,24 +56,6 @@ resource "aws_iam_role_policy" "lambda_policy" {
   })
 }
 
-resource "aws_security_group" "lambda_sg" {
-  name        = "${var.project_name}-lambda-sg"
-  description = "SG for Kinesis Lambda consumer"
-  vpc_id      = aws_vpc.main.id
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Project = var.project_name
-    Type    = "lambda"
-  }
-}
-
 data "archive_file" "iot_consumer" {
   type        = "zip"
   source_dir  = "${path.module}/lambda_source"
@@ -101,8 +83,8 @@ resource "aws_lambda_function" "kinesis_to_influx" {
 
 
   vpc_config {
-    subnet_ids         = values(aws_subnet.private)[*].id
-    security_group_ids = [aws_security_group.lambda_sg.id]
+    subnet_ids         = module.network.private_subnet_ids
+    security_group_ids = [module.network.lambda_sg_id]
   }
 
   environment {
@@ -131,4 +113,3 @@ variable "flink_region" {
   type    = string
   default = "ap-northeast-1"
 }
-

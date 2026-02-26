@@ -1,8 +1,8 @@
 resource "aws_timestreaminfluxdb_db_instance" "meterdb" {
 
   organization = "VCC"
-  bucket  = "${var.project_name}-influxdb-bucket"
-  name = "${var.project_name}-influxdb"
+  bucket       = "${var.project_name}-influxdb-bucket"
+  name         = "${var.project_name}-influxdb"
 
   # Select a small instance since this is a lab/project
   db_instance_type = "db.influx.medium"
@@ -13,8 +13,8 @@ resource "aws_timestreaminfluxdb_db_instance" "meterdb" {
   username = "admin"
   password = random_password.master.result
 
-  vpc_subnet_ids = values(aws_subnet.private)[*].id
-  vpc_security_group_ids = [aws_security_group.influxdb_sg.id]
+  vpc_subnet_ids         = module.network.private_subnet_ids
+  vpc_security_group_ids = [module.network.influxdb_sg_id]
 
   tags = {
     Project = var.project_name

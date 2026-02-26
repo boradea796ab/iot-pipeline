@@ -108,3 +108,62 @@ resource "aws_route_table_association" "public" {
   subnet_id      = each.value.id
   route_table_id = aws_route_table.public[0].id
 }
+
+resource "aws_vpc_endpoint" "s3" {
+  vpc_id            = aws_vpc.main.id
+  service_name      = "com.amazonaws.${var.aws_region}.s3"
+  vpc_endpoint_type = "Gateway"
+
+  route_table_ids = [
+    aws_route_table.private.id
+  ]
+
+  tags = {
+    Name = "${var.project_name}-s3-endpoint"
+  }
+}
+
+resource "aws_security_group" "lambda_sg" {
+  name        = "${var.project_name}-lambda-sg"
+  description = "SG for Kinesis Lambda consumer"
+  vpc_id      = aws_vpc.main.id
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Project = var.project_name
+    Type    = "lambda"
+  }
+}
+
+resource "aws_security_group" "influxdb_sg" {
+  name        = "${var.project_name}-influxdb-sg"
+  description = "Security group for Timestream for InfluxDB"
+  vpc_id      = aws_vpc.main.id
+
+  ingress {
+    description = "Allow Lambda consumer to write Line Protocol to InfluxDB"
+    from_port   = 8086
+    to_port     = 8086
+    protocol    = "tcp"
+    security_groups = [
+      aws_security_group.lambda_sg.id
+    ]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Project = var.project_name
+  }
+}

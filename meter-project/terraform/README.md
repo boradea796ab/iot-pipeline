@@ -29,6 +29,18 @@ Before migrating the main stack to an S3 backend, create the state infra from:
 
 That stack provisions an encrypted/versioned S3 bucket plus optional DynamoDB locking.
 
+## Environment-aware layout
+
+The root module stays in `terraform/`, while environment inputs now live in:
+
+- `terraform/envs/common.tfvars`
+- `terraform/envs/dev/terraform.tfvars`
+- `terraform/envs/stage/terraform.tfvars`
+- `terraform/envs/prod/terraform.tfvars`
+- `terraform/envs/<env>/backend.hcl.example`
+
+This allows dev/stage/prod to diverge safely without duplicating the root module.
+
 ## State migration (local -> S3 backend)
 
 After the bootstrap stack is applied, migrate this root module from local `terraform.tfstate` to remote S3 state.
@@ -41,14 +53,15 @@ terraform output -raw state_bucket_name
 terraform output -raw dynamodb_lock_table_name
 ```
 
-2. Create backend config for the main stack:
+2. Choose environment and create backend config for the main stack:
 
 ```bash
 cd /home/ubuntu/cmr-oms-xp/v2/meter-project/terraform
-cp backend.hcl.example backend.hcl
+ENV=dev
+cp "envs/${ENV}/backend.hcl.example" "envs/${ENV}/backend.hcl"
 ```
 
-Edit `backend.hcl` with real values from step 1 (bucket/table/region/key).
+Edit `envs/${ENV}/backend.hcl` with real values from step 1 (bucket/table/region/key).
 
 3. Back up local state before migration:
 
@@ -60,14 +73,16 @@ cp terraform.tfstate.backup terraform.tfstate.backup.pre-migration.backup
 4. Migrate state to remote backend:
 
 ```bash
-terraform init -migrate-state -backend-config=backend.hcl
+terraform init -migrate-state -backend-config="envs/${ENV}/backend.hcl"
 ```
 
 5. Verify:
 
 ```bash
 terraform state list
-terraform plan
+terraform plan \
+  -var-file="envs/common.tfvars" \
+  -var-file="envs/dev/terraform.tfvars"
 ```
 
 Expected result: `terraform plan` shows no unexpected resource changes.
@@ -77,12 +92,17 @@ Expected result: `terraform plan` shows no unexpected resource changes.
 For day-to-day infra changes in `terraform/`:
 
 ```bash
-terraform init -backend-config=backend.hcl
-terraform plan
-terraform apply
+ENV=dev
+terraform init -backend-config="envs/${ENV}/backend.hcl"
+terraform plan \
+  -var-file="envs/common.tfvars" \
+  -var-file="envs/${ENV}/terraform.tfvars"
+terraform apply \
+  -var-file="envs/common.tfvars" \
+  -var-file="envs/${ENV}/terraform.tfvars"
 ```
 
-Do not commit `backend.hcl` (it is environment-specific).
+Do not commit `envs/*/backend.hcl` (they are environment-specific).
 
 Always tell Terraform which AWS region to use so it talks to the same region where the IoT stack was provisioned. The IoT Core APIs that manage certificates/policy attachments are region-scoped, so running `terraform destroy` with the wrong region (for example defaulting to `us-east-1` while the certificate lives in `ap-northeast-1`) produces `InvalidRequestException: Invalid Target` errors while reading `aws_iot_policy_attachment` resources.
 

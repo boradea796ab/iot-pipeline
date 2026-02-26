@@ -20,7 +20,7 @@ output "influxdb_name" {
 
 output "influxdb_bucket" {
   description = "InfluxDB bucket name."
-  value       = aws_timestreaminfluxdb_db_instance.meterdb.bucket
+  value       = var.hot_bucket_name
 }
 
 output "admin_username" {
@@ -32,4 +32,14 @@ output "admin_password" {
   description = "Generated InfluxDB admin password."
   value       = random_password.master.result
   sensitive   = true
+}
+
+output "influx_hot_bucket_name" {
+  description = "Hot bucket name for recent raw data."
+  value       = var.hot_bucket_name
+}
+
+output "influx_cold_bucket_name" {
+  description = "Cold bucket name for downsampled historical data."
+  value       = var.cold_bucket_name
 }

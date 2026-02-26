@@ -79,3 +79,37 @@ variable "admin_ssm_parameter_prefix" {
   type        = string
   default     = "/smart-meter/iot/influxdb/admin"
 }
+
+variable "enable_bucket_tiering_automation" {
+  description = "Whether to enforce hot/cold bucket retention using Influx CLI."
+  type        = bool
+  default     = false
+}
+
+variable "hot_bucket_name" {
+  description = "Hot bucket name for recent high-query data."
+  type        = string
+}
+
+variable "hot_bucket_retention_hours" {
+  description = "Hot bucket retention in hours."
+  type        = number
+  default     = 2160
+}
+
+variable "cold_bucket_name" {
+  description = "Cold bucket name for downsampled historical data."
+  type        = string
+}
+
+variable "cold_bucket_retention_hours" {
+  description = "Cold bucket retention in hours."
+  type        = number
+  default     = 26280
+}
+
+variable "admin_token_ssm_parameter_name" {
+  description = "SSM parameter name containing Influx admin token used for bucket automation."
+  type        = string
+  default     = null
+}

@@ -22,8 +22,3 @@ output "lambda_sg_id" {
   description = "Lambda security group ID."
   value       = aws_security_group.lambda_sg.id
 }
-
-output "influxdb_sg_id" {
-  description = "InfluxDB security group ID."
-  value       = aws_security_group.influxdb_sg.id
-}

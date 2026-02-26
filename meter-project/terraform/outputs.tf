@@ -18,9 +18,9 @@ output "kinesis_stream_name" {
 }
 
 output "influxdb_endpoint" {
-  value = aws_timestreaminfluxdb_db_instance.meterdb.endpoint
+  value = module.timeseries_influx.influxdb_endpoint
 }
 
 output "influxdb_port" {
-  value = aws_timestreaminfluxdb_db_instance.meterdb.port
+  value = module.timeseries_influx.influxdb_port
 }

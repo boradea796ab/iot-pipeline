@@ -43,23 +43,16 @@ This allows dev/stage/prod to diverge safely without duplicating the root module
 
 ## Influx hot/cold buckets (commit 1)
 
-Tiering configuration is now exposed via Terraform variables:
+Tiering bucket names are exposed via Terraform variables:
 
 - `influx_hot_bucket_name`
-- `influx_hot_retention_hours`
 - `influx_cold_bucket_name`
-- `influx_cold_retention_hours`
 
-By default, bucket automation is disabled (`enable_influx_bucket_tiering_automation = false`) to avoid breaking applies where Influx admin token or CLI is not yet available.
+Bucket creation and retention enforcement are currently handled manually in Influx CLI (outside Terraform).
 
-To enable retention enforcement automation:
+## Influx downsampling task (manual)
 
-1. Store an admin token in SSM (SecureString)
-2. Set:
-   - `enable_influx_bucket_tiering_automation = true`
-   - `influx_admin_token_ssm_parameter_name = "<your-ssm-param-name>"`
-
-Terraform then runs an idempotent Influx CLI script to ensure hot/cold buckets exist and retention is enforced.
+Flux downsampling task management is currently manual (outside Terraform), executed from an environment that can reach the Influx endpoint.
 
 ## State migration (local -> S3 backend)
 

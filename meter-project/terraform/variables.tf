@@ -108,38 +108,14 @@ variable "influxdb_admin_ssm_parameter_prefix" {
   default     = "/smart-meter/iot/influxdb/admin"
 }
 
-variable "enable_influx_bucket_tiering_automation" {
-  description = "Whether Terraform should enforce Influx hot/cold bucket retention via Influx CLI."
-  type        = bool
-  default     = false
-}
-
 variable "influx_hot_bucket_name" {
   description = "Hot bucket name for raw recent data."
   type        = string
   default     = null
 }
 
-variable "influx_hot_retention_hours" {
-  description = "Retention in hours for hot bucket data."
-  type        = number
-  default     = 2160
-}
-
 variable "influx_cold_bucket_name" {
   description = "Cold bucket name for downsampled historical data."
-  type        = string
-  default     = null
-}
-
-variable "influx_cold_retention_hours" {
-  description = "Retention in hours for cold bucket data."
-  type        = number
-  default     = 26280
-}
-
-variable "influx_admin_token_ssm_parameter_name" {
-  description = "SSM parameter name containing Influx admin token used to manage buckets/tasks."
   type        = string
   default     = null
 }

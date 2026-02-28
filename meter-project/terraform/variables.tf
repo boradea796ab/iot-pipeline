@@ -119,3 +119,33 @@ variable "influx_cold_bucket_name" {
   type        = string
   default     = null
 }
+
+variable "analytics_query_lambda_timeout_seconds" {
+  description = "Analytics query Lambda timeout in seconds."
+  type        = number
+  default     = 15
+}
+
+variable "analytics_query_lambda_memory_mb" {
+  description = "Analytics query Lambda memory in MB."
+  type        = number
+  default     = 256
+}
+
+variable "analytics_query_lambda_reserved_concurrency" {
+  description = "Reserved concurrency for analytics query Lambda."
+  type        = number
+  default     = 5
+}
+
+variable "analytics_query_log_retention_days" {
+  description = "CloudWatch Logs retention for analytics query Lambda."
+  type        = number
+  default     = 14
+}
+
+variable "analytics_query_api_stage_name" {
+  description = "API stage name for analytics query HTTP API."
+  type        = string
+  default     = "v1"
+}

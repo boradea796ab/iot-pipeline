@@ -117,6 +117,54 @@ terraform apply \
 
 Do not commit `envs/*/backend.hcl` (they are environment-specific).
 
+## Analytics query service scaffold (commit: feat/analytics step 1)
+
+This stack now provisions a stub analytics query service:
+
+- Lambda: `${project_name}-analytics-query`
+- HTTP API routes:
+  - `GET /<stage>/health`
+  - `POST /<stage>/query`
+
+The Lambda runs inside the same VPC path used by the ingestion Lambda
+(private subnets + Lambda security group), so it is already positioned for
+future private Influx reads.
+
+### Verify health endpoint
+
+After apply, fetch the output URL:
+
+```bash
+terraform output -raw analytics_query_health_url
+```
+
+Call it:
+
+```bash
+curl "$(terraform output -raw analytics_query_health_url)"
+```
+
+Expected response includes:
+
+- `"status": "ok"`
+- `"mode": "stub"`
+
+### Verify stub query endpoint
+
+```bash
+curl -X POST "$(terraform output -raw analytics_query_stub_query_url)" \
+  -H "Content-Type: application/json" \
+  -d '{"panel":"live","meter_id":"sim-meter-001"}'
+```
+
+Expected response confirms no Influx execution and echoes request payload.
+
+### Verify CloudWatch logs
+
+```bash
+aws logs tail "/aws/lambda/$(terraform output -raw analytics_query_lambda_function_name)" --follow
+```
+
 Always tell Terraform which AWS region to use so it talks to the same region where the IoT stack was provisioned. The IoT Core APIs that manage certificates/policy attachments are region-scoped, so running `terraform destroy` with the wrong region (for example defaulting to `us-east-1` while the certificate lives in `ap-northeast-1`) produces `InvalidRequestException: Invalid Target` errors while reading `aws_iot_policy_attachment` resources.
 
 You can provide the region by:

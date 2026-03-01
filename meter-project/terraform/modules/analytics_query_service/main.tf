@@ -92,12 +92,14 @@ resource "aws_apigatewayv2_integration" "analytics_lambda" {
 }
 
 resource "aws_apigatewayv2_route" "health" {
+  authorization_type = "AWS_IAM" 
   api_id    = aws_apigatewayv2_api.analytics.id
   route_key = "GET /health"
   target    = "integrations/${aws_apigatewayv2_integration.analytics_lambda.id}"
 }
 
 resource "aws_apigatewayv2_route" "query" {
+  authorization_type = "AWS_IAM" 
   api_id    = aws_apigatewayv2_api.analytics.id
   route_key = "POST /query"
   target    = "integrations/${aws_apigatewayv2_integration.analytics_lambda.id}"

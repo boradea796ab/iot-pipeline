@@ -136,76 +136,18 @@ This stack now provisions a real analytics query backend:
 
 - Lambda: `${project_name}-analytics-query`
 - HTTP API routes:
-  - `GET /<stage>/v1/health`
-  - `POST /<stage>/v1/query/timeseries`
-  - `POST /<stage>/v1/query/statistics`
+  - `GET /<stage>/health`
+  - `POST /<stage>/query/timeseries`
+  - `POST /<stage>/query/statistics`
 
 The Lambda runs inside the same VPC path used by the ingestion Lambda
 (private subnets + Lambda security group), so it is already positioned for
 private Influx reads and now executes named server-side Flux templates only
 (no raw Flux passthrough).
 
-### Verify health endpoint
+Detailed API testing (including `awscurl` install, simulator re-run, and explicit hot/cold endpoint examples) is documented in:
 
-After apply, fetch the output URL:
-
-```bash
-terraform output -raw analytics_query_health_url
-```
-
-Call it with SigV4 (example using `awscurl`):
-
-```bash
-awscurl --service execute-api \
-  --region "${TF_VAR_aws_region:-ap-northeast-1}" \
-  "$(terraform output -raw analytics_query_health_url)"
-```
-
-Expected response includes `"status": "ok"` and supported query names.
-
-### Verify timeseries query endpoint
-
-```bash
-awscurl --service execute-api \
-  --region "${TF_VAR_aws_region:-ap-northeast-1}" \
-  -X POST "$(terraform output -raw analytics_query_timeseries_url)" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "query_name": "timeseries",
-    "time_range": {
-      "from": "2026-02-28T00:00:00Z",
-      "to": "2026-02-28T01:00:00Z"
-    },
-    "filters": {
-      "meter_ids": ["sim-meter-001"]
-    },
-    "granularity": "1m",
-    "timezone": "UTC",
-    "limit": 500
-  }'
-```
-
-### Verify statistics query endpoint
-
-```bash
-awscurl --service execute-api \
-  --region "${TF_VAR_aws_region:-ap-northeast-1}" \
-  -X POST "$(terraform output -raw analytics_query_statistics_url)" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "query_name": "statistics",
-    "time_range": {
-      "from": "2026-02-21T00:00:00Z",
-      "to": "2026-02-28T00:00:00Z"
-    },
-    "filters": {
-      "meter_ids": ["sim-meter-001"]
-    },
-    "granularity": "15m",
-    "timezone": "UTC",
-    "limit": 1000
-  }'
-```
+- `terraform/lambda_analytics_source/README.md`
 
 ## Grafana real-time + historical split
 

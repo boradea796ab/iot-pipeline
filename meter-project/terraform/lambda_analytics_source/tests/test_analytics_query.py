@@ -105,7 +105,7 @@ class AnalyticsQueryTests(unittest.TestCase):
         }
         event = {
             "body": json.dumps(payload),
-            "requestContext": {"routeKey": "POST /v1/query/statistics"},
+            "requestContext": {"routeKey": "POST /query/statistics"},
             "rawPath": "/v1/query/statistics",
         }
 

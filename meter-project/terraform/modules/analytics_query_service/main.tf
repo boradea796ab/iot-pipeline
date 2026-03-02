@@ -131,21 +131,21 @@ resource "aws_apigatewayv2_integration" "analytics_lambda" {
 
 resource "aws_apigatewayv2_route" "health" {
   api_id             = aws_apigatewayv2_api.analytics.id
-  route_key          = "GET /v1/health"
+  route_key          = "GET /health"
   authorization_type = "AWS_IAM"
   target             = "integrations/${aws_apigatewayv2_integration.analytics_lambda.id}"
 }
 
 resource "aws_apigatewayv2_route" "timeseries" {
   api_id             = aws_apigatewayv2_api.analytics.id
-  route_key          = "POST /v1/query/timeseries"
+  route_key          = "POST /query/timeseries"
   authorization_type = "AWS_IAM"
   target             = "integrations/${aws_apigatewayv2_integration.analytics_lambda.id}"
 }
 
 resource "aws_apigatewayv2_route" "statistics" {
   api_id             = aws_apigatewayv2_api.analytics.id
-  route_key          = "POST /v1/query/statistics"
+  route_key          = "POST /query/statistics"
   authorization_type = "AWS_IAM"
   target             = "integrations/${aws_apigatewayv2_integration.analytics_lambda.id}"
 }

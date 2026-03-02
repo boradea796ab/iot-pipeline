@@ -25,15 +25,15 @@ output "api_stage_name" {
 
 output "health_url" {
   description = "Health endpoint URL."
-  value       = "${aws_apigatewayv2_api.analytics.api_endpoint}/${aws_apigatewayv2_stage.analytics.name}/v1/health"
+  value       = "${aws_apigatewayv2_api.analytics.api_endpoint}/${aws_apigatewayv2_stage.analytics.name}/health"
 }
 
 output "timeseries_query_url" {
   description = "Timeseries query endpoint URL."
-  value       = "${aws_apigatewayv2_api.analytics.api_endpoint}/${aws_apigatewayv2_stage.analytics.name}/v1/query/timeseries"
+  value       = "${aws_apigatewayv2_api.analytics.api_endpoint}/${aws_apigatewayv2_stage.analytics.name}/query/timeseries"
 }
 
 output "statistics_query_url" {
   description = "Statistics query endpoint URL."
-  value       = "${aws_apigatewayv2_api.analytics.api_endpoint}/${aws_apigatewayv2_stage.analytics.name}/v1/query/statistics"
+  value       = "${aws_apigatewayv2_api.analytics.api_endpoint}/${aws_apigatewayv2_stage.analytics.name}/query/statistics"
 }

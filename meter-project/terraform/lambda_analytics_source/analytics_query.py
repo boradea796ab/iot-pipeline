@@ -395,7 +395,7 @@ def lambda_handler(event, context):
     raw_path = event.get("rawPath", "")
 
     try:
-        if route_key == "GET /v1/health" or (method == "GET" and raw_path.endswith("/health")):
+        if route_key == "GET /health" or (method == "GET" and raw_path.endswith("/health")):
             return _response(
                 200,
                 {
@@ -406,10 +406,10 @@ def lambda_handler(event, context):
                 },
             )
 
-        if route_key == "POST /v1/query/timeseries" or raw_path.endswith("/query/timeseries"):
+        if route_key == "POST /query/timeseries" or raw_path.endswith("/query/timeseries"):
             return _handle_query(event, "timeseries")
 
-        if route_key == "POST /v1/query/statistics" or raw_path.endswith("/query/statistics"):
+        if route_key == "POST /query/statistics" or raw_path.endswith("/query/statistics"):
             return _handle_query(event, "statistics")
 
         return _response(404, {"message": "Route not found"})

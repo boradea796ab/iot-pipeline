@@ -50,9 +50,22 @@ Tiering bucket names are exposed via Terraform variables:
 
 Bucket creation and retention enforcement are currently handled manually in Influx CLI (outside Terraform).
 
-## Influx downsampling task (manual)
+## Influx downsampling task automation
 
-Flux downsampling task management is currently manual (outside Terraform), executed from an environment that can reach the Influx endpoint.
+Use the helper script to create/update the hot->cold 15-minute downsampling task:
+
+```bash
+cd /home/ubuntu/cmr-oms-xp/v2/meter-project/terraform
+export INFLUX_HOST="https://<influx-endpoint>:8086"
+export INFLUX_TOKEN="<admin-or-task-token>"
+export INFLUX_ORG="VCC"
+export INFLUX_HOT_BUCKET="<hot-bucket>"
+export INFLUX_COLD_BUCKET="<cold-bucket>"
+./scripts/create_influx_downsampling_task.sh
+```
+
+The task writes 15-minute `mean`, `min`, `max`, and `count` aggregates into the cold bucket.
+Prerequisites: `curl` and `jq`.
 
 ## State migration (local -> S3 backend)
 
@@ -117,18 +130,20 @@ terraform apply \
 
 Do not commit `envs/*/backend.hcl` (they are environment-specific).
 
-## Analytics query service scaffold (commit: feat/analytics step 1)
+## Analytics query service (v1)
 
-This stack now provisions a stub analytics query service:
+This stack now provisions a real analytics query backend:
 
 - Lambda: `${project_name}-analytics-query`
 - HTTP API routes:
-  - `GET /<stage>/health`
-  - `POST /<stage>/query`
+  - `GET /<stage>/v1/health`
+  - `POST /<stage>/v1/query/timeseries`
+  - `POST /<stage>/v1/query/statistics`
 
 The Lambda runs inside the same VPC path used by the ingestion Lambda
 (private subnets + Lambda security group), so it is already positioned for
-future private Influx reads.
+private Influx reads and now executes named server-side Flux templates only
+(no raw Flux passthrough).
 
 ### Verify health endpoint
 
@@ -138,26 +153,64 @@ After apply, fetch the output URL:
 terraform output -raw analytics_query_health_url
 ```
 
-Call it:
+Call it with SigV4 (example using `awscurl`):
 
 ```bash
-curl "$(terraform output -raw analytics_query_health_url)"
+awscurl --service execute-api \
+  --region "${TF_VAR_aws_region:-ap-northeast-1}" \
+  "$(terraform output -raw analytics_query_health_url)"
 ```
 
-Expected response includes:
+Expected response includes `"status": "ok"` and supported query names.
 
-- `"status": "ok"`
-- `"mode": "stub"`
-
-### Verify stub query endpoint
+### Verify timeseries query endpoint
 
 ```bash
-curl -X POST "$(terraform output -raw analytics_query_stub_query_url)" \
+awscurl --service execute-api \
+  --region "${TF_VAR_aws_region:-ap-northeast-1}" \
+  -X POST "$(terraform output -raw analytics_query_timeseries_url)" \
   -H "Content-Type: application/json" \
-  -d '{"panel":"live","meter_id":"sim-meter-001"}'
+  -d '{
+    "query_name": "timeseries",
+    "time_range": {
+      "from": "2026-02-28T00:00:00Z",
+      "to": "2026-02-28T01:00:00Z"
+    },
+    "filters": {
+      "meter_ids": ["sim-meter-001"]
+    },
+    "granularity": "1m",
+    "timezone": "UTC",
+    "limit": 500
+  }'
 ```
 
-Expected response confirms no Influx execution and echoes request payload.
+### Verify statistics query endpoint
+
+```bash
+awscurl --service execute-api \
+  --region "${TF_VAR_aws_region:-ap-northeast-1}" \
+  -X POST "$(terraform output -raw analytics_query_statistics_url)" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query_name": "statistics",
+    "time_range": {
+      "from": "2026-02-21T00:00:00Z",
+      "to": "2026-02-28T00:00:00Z"
+    },
+    "filters": {
+      "meter_ids": ["sim-meter-001"]
+    },
+    "granularity": "15m",
+    "timezone": "UTC",
+    "limit": 1000
+  }'
+```
+
+## Grafana real-time + historical split
+
+- Real-time panels should query Influx hot bucket directly (refresh 5s, window <= 15m).
+- Historical/statistical panels should call the analytics API routes above.
 
 ### Verify CloudWatch logs
 

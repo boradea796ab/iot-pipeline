@@ -149,3 +149,57 @@ variable "analytics_query_api_stage_name" {
   type        = string
   default     = "v1"
 }
+
+variable "analytics_query_influxdb_query_url_ssm_parameter" {
+  description = "SSM parameter name containing Influx query API URL."
+  type        = string
+  default     = "/smart-meter/iot/influxdb/query-url"
+}
+
+variable "analytics_query_influxdb_read_token_ssm_parameter" {
+  description = "SSM parameter name containing Influx read token for analytics queries."
+  type        = string
+  default     = "/smart-meter/iot/influxdb/read-token"
+}
+
+variable "analytics_query_hot_retention_days" {
+  description = "Hot bucket retention (days) used by query-routing logic."
+  type        = number
+  default     = 7
+}
+
+variable "analytics_query_max_lookback_days" {
+  description = "Maximum query lookback window in days."
+  type        = number
+  default     = 370
+}
+
+variable "analytics_query_max_series_limit" {
+  description = "Maximum returned rows from analytics query API."
+  type        = number
+  default     = 5000
+}
+
+variable "analytics_query_max_meter_ids" {
+  description = "Maximum meter IDs accepted in analytics query request filters."
+  type        = number
+  default     = 100
+}
+
+variable "analytics_query_influx_timeout_seconds" {
+  description = "Timeout in seconds for Lambda calls to Influx query API."
+  type        = number
+  default     = 10
+}
+
+variable "analytics_query_invoke_role_arns" {
+  description = "IAM role ARNs allowed to invoke analytics query API (policy attachment target)."
+  type        = list(string)
+  default     = []
+}
+
+variable "analytics_query_metrics_namespace" {
+  description = "CloudWatch metrics namespace for analytics query Lambda EMF metrics."
+  type        = string
+  default     = "SmartMeter/AnalyticsQuery"
+}

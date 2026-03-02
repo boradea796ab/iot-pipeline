@@ -1,0 +1,53 @@
+{
+  "uid": "realtime-live-overview",
+  "title": "Realtime Live Overview",
+  "tags": ["iot", "realtime", "influx"],
+  "timezone": "utc",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5s",
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "kWh (Live)",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "${DS_INFLUX_HOT}"
+      },
+      "targets": [
+        {
+          "query": "from(bucket: v.defaultBucket) |> range(start: -15m) |> filter(fn: (r) => r._measurement == \"meter_readings\" and r._field == \"kWh\") |> aggregateWindow(every: 1m, fn: mean, createEmpty: false)"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Last Voltage",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "${DS_INFLUX_HOT}"
+      },
+      "targets": [
+        {
+          "query": "from(bucket: v.defaultBucket) |> range(start: -5m) |> filter(fn: (r) => r._measurement == \"meter_readings\" and r._field == \"voltage\") |> last()"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      }
+    }
+  ]
+}

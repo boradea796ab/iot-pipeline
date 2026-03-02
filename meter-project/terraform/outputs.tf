@@ -40,7 +40,12 @@ output "analytics_query_health_url" {
   value       = module.analytics_query_service.health_url
 }
 
-output "analytics_query_stub_query_url" {
-  description = "Stub query endpoint URL for analytics query service."
-  value       = module.analytics_query_service.query_url
+output "analytics_query_timeseries_url" {
+  description = "Timeseries query endpoint URL for analytics query service."
+  value       = module.analytics_query_service.timeseries_query_url
+}
+
+output "analytics_query_statistics_url" {
+  description = "Statistics query endpoint URL for analytics query service."
+  value       = module.analytics_query_service.statistics_query_url
 }

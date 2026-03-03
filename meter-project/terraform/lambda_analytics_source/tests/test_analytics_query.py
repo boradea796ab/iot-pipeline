@@ -2,9 +2,9 @@ import json
 import os
 import unittest
 from datetime import datetime, timedelta, timezone
-from unittest.mock import patch
 
 import analytics_query
+from analytics_backend import FluxQueryBuilder, QueryHandlerService, RequestParser, SeriesStats, SourceRangePlanner
 
 
 class AnalyticsQueryTests(unittest.TestCase):
@@ -32,7 +32,7 @@ class AnalyticsQueryTests(unittest.TestCase):
 
     def test_parse_request_accepts_valid_envelope(self):
         event = {"body": json.dumps(self._request_payload())}
-        parsed = analytics_query._parse_request(event, "timeseries")
+        parsed = RequestParser().parse(event, "timeseries")
 
         self.assertEqual(parsed["query_name"], "timeseries")
         self.assertEqual(parsed["granularity"], "1m")
@@ -44,11 +44,11 @@ class AnalyticsQueryTests(unittest.TestCase):
         event = {"body": json.dumps(payload)}
 
         with self.assertRaises(analytics_query.ValidationError):
-            analytics_query._parse_request(event, "timeseries")
+            RequestParser().parse(event, "timeseries")
 
     def test_source_ranges_prefers_hot_for_high_granularity_recent_window(self):
         now = datetime.now(timezone.utc)
-        ranges = analytics_query._source_ranges(
+        ranges = SourceRangePlanner().plan(
             start=now - timedelta(hours=2),
             end=now,
             granularity="1m",
@@ -60,7 +60,7 @@ class AnalyticsQueryTests(unittest.TestCase):
 
     def test_source_ranges_splits_span_across_hot_and_cold(self):
         now = datetime.now(timezone.utc)
-        ranges = analytics_query._source_ranges(
+        ranges = SourceRangePlanner().plan(
             start=now - timedelta(days=14),
             end=now,
             granularity="1m",
@@ -74,7 +74,7 @@ class AnalyticsQueryTests(unittest.TestCase):
         payload["mode"] = "raw"
         event = {"body": json.dumps(payload)}
 
-        parsed = analytics_query._parse_request(event, "timeseries")
+        parsed = RequestParser().parse(event, "timeseries")
 
         self.assertEqual(parsed["mode"], "raw")
 
@@ -94,7 +94,7 @@ class AnalyticsQueryTests(unittest.TestCase):
         event = {"body": json.dumps(payload)}
 
         with self.assertRaises(analytics_query.ValidationError):
-            analytics_query._parse_request(event, "statistics")
+            RequestParser().parse(event, "statistics")
 
     def test_parse_request_rejects_raw_window_over_limit(self):
         now = datetime.now(timezone.utc)
@@ -107,13 +107,13 @@ class AnalyticsQueryTests(unittest.TestCase):
         event = {"body": json.dumps(payload)}
 
         with self.assertRaises(analytics_query.ValidationError):
-            analytics_query._parse_request(event, "timeseries")
+            RequestParser().parse(event, "timeseries")
 
     def test_source_ranges_raw_rejects_start_outside_hot_window(self):
         now = datetime.now(timezone.utc)
 
         with self.assertRaises(analytics_query.ValidationError):
-            analytics_query._source_ranges(
+            SourceRangePlanner().plan(
                 start=now - timedelta(days=8),
                 end=now,
                 granularity="1m",
@@ -132,7 +132,7 @@ class AnalyticsQueryTests(unittest.TestCase):
             "limit": 100,
         }
 
-        flux = analytics_query._build_flux_query(
+        flux = FluxQueryBuilder().build(
             bucket="hot",
             req=req,
             start=now - timedelta(minutes=5),
@@ -148,16 +148,15 @@ class AnalyticsQueryTests(unittest.TestCase):
             {"field": "kWh", "value": 3.0},
         ]
 
-        stats = analytics_query._compute_stats(series)
+        stats = SeriesStats().compute(series)
 
         self.assertEqual(stats["kWh"]["min"], 1.0)
         self.assertEqual(stats["kWh"]["max"], 3.0)
         self.assertAlmostEqual(stats["kWh"]["avg"], 2.0)
         self.assertEqual(stats["kWh"]["count"], 3)
 
-    @patch("analytics_query._execute_flux_query")
-    def test_handle_query_returns_statistics_payload(self, mock_execute):
-        mock_execute.return_value = [
+    def test_handle_query_returns_statistics_payload(self):
+        mock_rows = [
             {
                 "timestamp": "2026-02-28T00:00:00Z",
                 "meter_id": "meter-1",
@@ -188,7 +187,14 @@ class AnalyticsQueryTests(unittest.TestCase):
         os.environ["INFLUX_HOT_BUCKET"] = "hot"
         os.environ["INFLUX_COLD_BUCKET"] = "cold"
 
-        response = analytics_query._handle_query(event, "statistics")
+        service = QueryHandlerService(
+            parser=RequestParser(),
+            planner=SourceRangePlanner(),
+            build_flux_query_fn=FluxQueryBuilder().build,
+            execute_flux_query_fn=lambda flux_query, timeout_seconds: mock_rows,
+            compute_stats_fn=SeriesStats().compute,
+        )
+        response = analytics_query.response(200, service.handle(event, "statistics"))
         body = json.loads(response["body"])
 
         self.assertEqual(response["statusCode"], 200)

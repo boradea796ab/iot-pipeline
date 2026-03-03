@@ -60,61 +60,6 @@ resource "aws_iot_thing_principal_attachment" "sim_meter_thing_attach" {
   ]
 }
 
-data "aws_iot_endpoint" "data" {
-  endpoint_type = "iot:Data-ATS"
-}
-
-resource "local_file" "sim_cert_pem" {
-  filename = "${var.certs_output_dir}/device_certificate.pem"
-  content  = aws_iot_certificate.sim_meter_cert.certificate_pem
-}
-
-resource "local_file" "sim_private_key" {
-  filename = "${var.certs_output_dir}/private_key.pem"
-  content  = aws_iot_certificate.sim_meter_cert.private_key
-}
-
-resource "local_file" "sim_public_key" {
-  filename = "${var.certs_output_dir}/public_key.pem"
-  content  = aws_iot_certificate.sim_meter_cert.public_key
-}
-
-resource "aws_iam_role" "iot_rules_role" {
-  name = "${var.project_name}-iot-rules-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Principal = {
-          Service = "iot.amazonaws.com"
-        }
-        Action = "sts:AssumeRole"
-      }
-    ]
-  })
-}
-
-resource "aws_iam_role_policy" "iot_rules_policy" {
-  name = "${var.project_name}-iot-rules-policy"
-  role = aws_iam_role.iot_rules_role.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "kinesis:PutRecord",
-          "kinesis:PutRecords"
-        ]
-        Resource = var.kinesis_stream_arn
-      }
-    ]
-  })
-}
-
 resource "aws_iot_topic_rule" "meters_to_kinesis" {
   name        = "${local.iot_rule_name_prefix}_meters_rule"
   enabled     = true

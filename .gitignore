@@ -68,5 +68,6 @@ aws/
 
 # certs
 */simulator
+*/simulator/certs
 */iot-simulator/certs
 */iot

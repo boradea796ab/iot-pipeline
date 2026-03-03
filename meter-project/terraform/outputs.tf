@@ -49,3 +49,23 @@ output "analytics_query_statistics_url" {
   description = "Statistics query endpoint URL for analytics query service."
   value       = module.analytics_query_service.statistics_query_url
 }
+
+output "grafana_workspace_id" {
+  description = "Grafana workspace ID."
+  value       = module.observability_grafana.grafana_workspace_id
+}
+
+output "grafana_workspace_endpoint" {
+  description = "Grafana workspace endpoint."
+  value       = module.observability_grafana.grafana_workspace_endpoint
+}
+
+output "grafana_influx_datasource_payload" {
+  description = "Payload to create/update Grafana InfluxDB data source."
+  value       = module.observability_grafana.influx_datasource_payload
+}
+
+output "grafana_baseline_dashboard_files" {
+  description = "Baseline Grafana dashboard JSON files bundled in the module."
+  value       = module.observability_grafana.baseline_dashboard_files
+}

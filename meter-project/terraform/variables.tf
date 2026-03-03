@@ -203,3 +203,9 @@ variable "analytics_query_metrics_namespace" {
   type        = string
   default     = "SmartMeter/AnalyticsQuery"
 }
+
+variable "grafana_admin_role_arns" {
+  description = "IAM role ARNs that should be Grafana workspace admins (usually your SSO roles)."
+  type        = list(string)
+  default     = ["arn:aws:iam::808329257566:role/aws-reserved/sso.amazonaws.com/ap-northeast-1/AWSReservedSSO_GrafanaAdmin_53a8c239834e0009"]
+}

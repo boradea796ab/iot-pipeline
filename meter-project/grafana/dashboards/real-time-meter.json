@@ -1,0 +1,588 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 2,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Meter Trend",
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "afew2ixp02p6of"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 18,
+            "gradientMode": "opacity",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 3,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 80
+              },
+              {
+                "color": "red",
+                "value": 95
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "timeseries",
+          "type": "json",
+          "source": "url",
+          "url": "https://55ojneksi9.execute-api.ap-northeast-1.amazonaws.com/v1/query/timeseries",
+          "root_selector": "",
+          "columns": [],
+          "filters": [],
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "afew2ixp02p6of"
+          },
+          "url_options": {
+            "method": "POST",
+            "body_type": "raw",
+            "body_content_type": "application/json",
+            "data": "{\n  \"query_name\": \"timeseries\",\n  \"time_range\": {\n    \"from\": \"${__from:date:iso}\",\n    \"to\": \"${__to:date:iso}\"\n  },\n  \"filters\": {\n    \"meter_ids\": [\"${meter_id}\"]\n  },\n  \"granularity\": \"${granularity}\",\n  \"timezone\": \"UTC\",\n  \"limit\": 5000\n}"
+          }
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Latest Value",
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "afew2ixp02p6of"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 0,
+        "y": 10
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 80
+              },
+              {
+                "color": "red",
+                "value": 95
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "timeseries",
+          "type": "json",
+          "source": "url",
+          "url": "https://55ojneksi9.execute-api.ap-northeast-1.amazonaws.com/v1/query/timeseries",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "afew2ixp02p6of"
+          },
+          "url_options": {
+            "method": "POST",
+            "body_type": "raw",
+            "body_content_type": "application/json",
+            "data": "{\n  \"query_name\": \"timeseries\",\n  \"time_range\": {\n    \"from\": \"${__from:date:iso}\",\n    \"to\": \"${__to:date:iso}\"\n  },\n  \"filters\": {\n    \"meter_ids\": [\"${meter_id}\"]\n  },\n  \"granularity\": \"${granularity}\",\n  \"timezone\": \"UTC\",\n  \"limit\": 5000\n}"
+          }
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Average",
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "afew2ixp02p6of"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 8,
+        "y": 10
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "continuous-GrYlRd"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 80
+              },
+              {
+                "color": "red",
+                "value": 95
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "mean"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "timeseries",
+          "type": "json",
+          "source": "url",
+          "url": "https://55ojneksi9.execute-api.ap-northeast-1.amazonaws.com/v1/query/timeseries",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "afew2ixp02p6of"
+          },
+          "url_options": {
+            "method": "POST",
+            "body_type": "raw",
+            "body_content_type": "application/json",
+            "data": "{\n  \"query_name\": \"timeseries\",\n  \"time_range\": {\n    \"from\": \"${__from:date:iso}\",\n    \"to\": \"${__to:date:iso}\"\n  },\n  \"filters\": {\n    \"meter_ids\": [\"${meter_id}\"]\n  },\n  \"granularity\": \"${granularity}\",\n  \"timezone\": \"UTC\",\n  \"limit\": 5000\n}"
+          }
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Peak",
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "afew2ixp02p6of"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 16,
+        "y": 10
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "continuous-YlRd"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 80
+              },
+              {
+                "color": "red",
+                "value": 95
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "max"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "timeseries",
+          "type": "json",
+          "source": "url",
+          "url": "https://55ojneksi9.execute-api.ap-northeast-1.amazonaws.com/v1/query/timeseries",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "afew2ixp02p6of"
+          },
+          "url_options": {
+            "method": "POST",
+            "body_type": "raw",
+            "body_content_type": "application/json",
+            "data": "{\n  \"query_name\": \"timeseries\",\n  \"time_range\": {\n    \"from\": \"${__from:date:iso}\",\n    \"to\": \"${__to:date:iso}\"\n  },\n  \"filters\": {\n    \"meter_ids\": [\"${meter_id}\"]\n  },\n  \"granularity\": \"${granularity}\",\n  \"timezone\": \"UTC\",\n  \"limit\": 5000\n}"
+          }
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "barchart",
+      "title": "Hourly Profile",
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "afew2ixp02p6of"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 15
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "continuous-BlYlRd"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "lineWidth": 1
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 95
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "barRadius": 0.2,
+        "barWidth": 0.8,
+        "groupWidth": 0.8,
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "orientation": "vertical",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "xField": "Time",
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 100
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "type": "json",
+          "source": "url",
+          "url": "https://55ojneksi9.execute-api.ap-northeast-1.amazonaws.com/v1/query/timeseries",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "afew2ixp02p6of"
+          },
+          "url_options": {
+            "method": "POST",
+            "body_type": "raw",
+            "body_content_type": "application/json",
+            "data": "{\n  \"query_name\": \"timeseries\",\n  \"time_range\": {\n    \"from\": \"${__from:date:iso}\",\n    \"to\": \"${__to:date:iso}\"\n  },\n  \"filters\": {\n    \"meter_ids\": [\"${meter_id}\"]\n  },\n  \"granularity\": \"1h\",\n  \"timezone\": \"UTC\",\n  \"limit\": 1000\n}"
+          }
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "table",
+      "title": "Raw Data",
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "afew2ixp02p6of"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 15
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 95
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "type": "json",
+          "source": "url",
+          "url": "https://55ojneksi9.execute-api.ap-northeast-1.amazonaws.com/v1/query/timeseries",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "afew2ixp02p6of"
+          },
+          "url_options": {
+            "method": "POST",
+            "body_type": "raw",
+            "body_content_type": "application/json",
+            "data": "{\n  \"query_name\": \"timeseries\",\n  \"time_range\": {\n    \"from\": \"${__from:date:iso}\",\n    \"to\": \"${__to:date:iso}\"\n  },\n  \"filters\": {\n    \"meter_ids\": [\"${meter_id}\"]\n  },\n  \"granularity\": \"${granularity}\",\n  \"timezone\": \"UTC\",\n  \"limit\": 5000\n}"
+          }
+        }
+      ]
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": [
+    "meter",
+    "analytics",
+    "infinity"
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "meter_id",
+        "type": "custom",
+        "label": "Meter",
+        "query": "meter-001,meter-002,meter-003",
+        "current": {
+          "selected": true,
+          "text": "meter-001",
+          "value": "meter-001"
+        },
+        "options": [
+          {
+            "selected": true,
+            "text": "meter-001",
+            "value": "meter-001"
+          },
+          {
+            "selected": false,
+            "text": "meter-002",
+            "value": "meter-002"
+          },
+          {
+            "selected": false,
+            "text": "meter-003",
+            "value": "meter-003"
+          }
+        ],
+        "includeAll": false,
+        "multi": false,
+        "hide": 0
+      },
+      {
+        "name": "granularity",
+        "type": "custom",
+        "label": "Granularity",
+        "query": "1m,5m,15m,1h",
+        "current": {
+          "selected": true,
+          "text": "5m",
+          "value": "5m"
+        },
+        "options": [
+          {
+            "selected": false,
+            "text": "1m",
+            "value": "1m"
+          },
+          {
+            "selected": true,
+            "text": "5m",
+            "value": "5m"
+          },
+          {
+            "selected": false,
+            "text": "15m",
+            "value": "15m"
+          },
+          {
+            "selected": false,
+            "text": "1h",
+            "value": "1h"
+          }
+        ],
+        "includeAll": false,
+        "multi": false,
+        "hide": 0
+      }
+    ]
+  },
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Meter Analytics Cockpit",
+  "version": 1,
+  "weekStart": ""
+}

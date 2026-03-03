@@ -16,6 +16,7 @@ logger.setLevel(logging.INFO)
 ALLOWED_GRANULARITIES = {"1m", "5m", "15m", "1h"}
 HIGH_GRANULARITIES = {"1m", "5m"}
 ALLOWED_QUERY_NAMES = {"timeseries", "statistics"}
+ALLOWED_MODES = {"aggregated", "raw"}
 DEFAULT_FIELDS = ["kWh", "voltage", "current"]
 
 
@@ -107,6 +108,12 @@ def _parse_request(event: Dict, expected_query_name: str) -> Dict:
     if query_name not in ALLOWED_QUERY_NAMES:
         raise ValidationError("Unsupported query_name")
 
+    mode = parsed.get("mode", "aggregated")
+    if mode not in ALLOWED_MODES:
+        raise ValidationError("mode must be one of aggregated|raw")
+    if mode == "raw" and query_name != "timeseries":
+        raise ValidationError("mode='raw' is supported only for query_name='timeseries'")
+
     time_range = parsed.get("time_range") or {}
     start = _parse_time(time_range.get("from"))
     end = _parse_time(time_range.get("to"))
@@ -148,14 +155,27 @@ def _parse_request(event: Dict, expected_query_name: str) -> Dict:
         raise ValidationError("fields must be a non-empty array when provided")
 
     max_limit = _env_int("MAX_SERIES_LIMIT", 5000)
-    limit = parsed.get("limit", min(2000, max_limit))
+    max_raw_limit = _env_int("MAX_RAW_SERIES_LIMIT", max_limit)
+    effective_max_limit = max_raw_limit if mode == "raw" else max_limit
+    default_limit = min(10000, effective_max_limit) if mode == "raw" else min(2000, effective_max_limit)
+
+    limit = parsed.get("limit", default_limit)
     if not isinstance(limit, int) or limit <= 0:
         raise ValidationError("limit must be a positive integer")
-    if limit > max_limit:
+    if limit > effective_max_limit:
+        if mode == "raw":
+            raise ValidationError(f"limit exceeds MAX_RAW_SERIES_LIMIT={max_raw_limit}")
         raise ValidationError(f"limit exceeds MAX_SERIES_LIMIT={max_limit}")
+
+    if mode == "raw":
+        max_raw_window_minutes = _env_int("MAX_RAW_WINDOW_MINUTES", 180)
+        window_minutes = (end - start).total_seconds() / 60
+        if window_minutes > max_raw_window_minutes:
+            raise ValidationError(f"Raw mode window exceeds MAX_RAW_WINDOW_MINUTES={max_raw_window_minutes}")
 
     return {
         "query_name": query_name,
+        "mode": mode,
         "start": start,
         "end": end,
         "granularity": granularity,
@@ -168,9 +188,14 @@ def _parse_request(event: Dict, expected_query_name: str) -> Dict:
     }
 
 
-def _source_ranges(start: datetime, end: datetime, granularity: str) -> List[Tuple[str, datetime, datetime]]:
+def _source_ranges(start: datetime, end: datetime, granularity: str, mode: str) -> List[Tuple[str, datetime, datetime]]:
     hot_retention_days = _env_int("HOT_RETENTION_DAYS", 7)
     hot_cutoff = datetime.now(timezone.utc) - timedelta(days=hot_retention_days)
+
+    if mode == "raw":
+        if start < hot_cutoff:
+            raise ValidationError("mode='raw' supports only recent data in hot retention window")
+        return [("hot", start, end)]
 
     if end <= hot_cutoff:
         return [("cold", start, end)]
@@ -218,10 +243,14 @@ def _build_flux_query(bucket: str, req: Dict, start: datetime, end: datetime) ->
     fields = [f'r["_field"] == "{_escape_flux_string(field)}"' for field in req["fields"]]
     field_filter = f"\n  |> filter(fn: (r) => {' or '.join(fields)})"
 
+    aggregate_clause = ""
+    if req["mode"] == "aggregated":
+        aggregate_clause = f'\n  |> aggregateWindow(every: {req["granularity"]}, fn: mean, createEmpty: false)'
+
     flux = f'''from(bucket: "{_escape_flux_string(bucket)}")
   |> range(start: time(v: "{start.isoformat()}"), stop: time(v: "{end.isoformat()}"))
   |> filter(fn: (r) => r["_measurement"] == "{_escape_flux_string(measurement_name)}"){field_filter}{meter_filter}{site_filter}{tag_filters}
-  |> aggregateWindow(every: {req["granularity"]}, fn: mean, createEmpty: false)
+{aggregate_clause}
   |> keep(columns: ["_time", "_value", "_field", "meterId", "siteId"])
   |> sort(columns: ["_time"])
   |> limit(n: {req["limit"]})
@@ -327,6 +356,7 @@ def _handle_query(event: Dict, expected_query_name: str) -> Dict:
         start=request_payload["start"],
         end=request_payload["end"],
         granularity=request_payload["granularity"],
+        mode=request_payload["mode"],
     )
 
     bucket_by_source = {
@@ -355,6 +385,7 @@ def _handle_query(event: Dict, expected_query_name: str) -> Dict:
     response_payload = {
         "meta": {
             "query_name": query_name,
+            "mode": request_payload["mode"],
             "executed_at": _iso_now(),
             "granularity": request_payload["granularity"],
             "partial_data": len(sources_used) > 1,
@@ -375,6 +406,7 @@ def _handle_query(event: Dict, expected_query_name: str) -> Dict:
         range_from=request_payload["start"].isoformat(),
         range_to=request_payload["end"].isoformat(),
         meter_count=len(request_payload["meter_ids"]),
+        mode=request_payload["mode"],
         granularity=request_payload["granularity"],
         duration_ms=duration_ms,
         result_rows=len(rows),

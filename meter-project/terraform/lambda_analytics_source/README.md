@@ -49,6 +49,7 @@ awscurl --service execute-api --region "$AWS_REGION" "$HEALTH_URL"
 
 ### 4.2 Timeseries endpoint (hot bucket path)
 
+By default, timeseries mode is `aggregated` and applies `aggregateWindow` by requested `granularity`.
 Hot path uses recent range with high granularity (`1m` or `5m`):
 
 ```bash
@@ -67,7 +68,29 @@ awscurl --service execute-api --region "$AWS_REGION" \
 
 Expected: `meta.sources` includes `hot`.
 
-### 4.3 Timeseries endpoint (cold bucket path)
+### 4.3 Timeseries endpoint (raw mode, no aggregateWindow)
+
+Raw mode returns point-level data from hot retention only (default max raw window: 180 minutes):
+
+```bash
+awscurl --service execute-api --region "$AWS_REGION" \
+  -X POST "$TS_URL" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query_name":"timeseries",
+    "mode":"raw",
+    "time_range":{"from":"2026-03-03T00:00:00Z","to":"2026-03-03T02:00:00Z"},
+    "filters":{"meter_ids":["meter-001"]},
+    "fields":["current","voltage"],
+    "granularity":"1m",
+    "timezone":"UTC",
+    "limit":5000
+  }'
+```
+
+Expected: `meta.mode` is `raw` and result density is higher than aggregated mode for the same range.
+
+### 4.4 Timeseries endpoint (cold bucket path)
 
 Cold path uses historical range older than hot retention (default 7 days), or coarse granularity routing:
 
@@ -87,7 +110,7 @@ awscurl --service execute-api --region "$AWS_REGION" \
 
 Expected: `meta.sources` includes `cold` if cold bucket has data.
 
-### 4.4 Statistics endpoint (hot-friendly test)
+### 4.5 Statistics endpoint (hot-friendly test)
 
 ```bash
 awscurl --service execute-api --region "$AWS_REGION" \
@@ -105,7 +128,7 @@ awscurl --service execute-api --region "$AWS_REGION" \
 
 Expected: `stats.kWh`, `stats.voltage`, and `stats.current` objects with `min/max/avg/p95/count`.
 
-### 4.5 Statistics endpoint (cold-bucket historical test)
+### 4.6 Statistics endpoint (cold-bucket historical test)
 
 ```bash
 awscurl --service execute-api --region "$AWS_REGION" \

@@ -1,0 +1,186 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 2,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Energy Consumption Trend (kWh)",
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "afew2ixp02p6of"
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kWh",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 30,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "kWh MA(5)"
+            },
+            "properties": [
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 3
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#f59e0b",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": ["lastNotNull", "mean", "max", "min"]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "afew2ixp02p6of"
+          },
+          "source": "url",
+          "type": "json",
+          "format": "timeseries",
+          "root_selector": "series",
+          "columns": [
+            {
+              "selector": "timestamp",
+              "text": "Time",
+              "type": "timestamp"
+            },
+            {
+              "selector": "value",
+              "text": "kWh",
+              "type": "number"
+            }
+          ],
+          "url": "https://55ojneksi9.execute-api.ap-northeast-1.amazonaws.com/v1/query/timeseries",
+          "url_options": {
+            "method": "POST",
+            "body_type": "raw",
+            "body_content_type": "application/json",
+            "data": "{\n  \"query_name\": \"timeseries\",\n  \"mode\": \"aggregated\",\n  \"time_range\": {\n    \"from\": \"${__from:date:iso}\",\n    \"to\": \"${__to:date:iso}\"\n  },\n  \"filters\": {\n    \"meter_ids\": [\"${meter_id}\"]\n  },\n  \"fields\": [\"kWh\"],\n  \"granularity\": \"${granularity}\",\n  \"timezone\": \"UTC\",\n  \"limit\": 5000\n}"
+          }
+        }
+      ],
+      "transformations": [
+        {
+          "id": "calculateField",
+          "options": {
+            "mode": "windowFunctions",
+            "alias": "kWh MA(5)",
+            "replaceFields": false,
+            "window": {
+              "reducer": "mean",
+              "windowSize": 5
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["meter", "analytics", "kwh"],
+  "templating": {
+    "list": [
+      {
+        "name": "meter_id",
+        "label": "Meter",
+        "type": "custom",
+        "query": "meter-001,meter-002,meter-003,meter-004,meter-005,meter-006,meter-007,meter-008,meter-009,meter-010",
+        "includeAll": false,
+        "multi": false,
+        "current": {
+          "selected": true,
+          "text": "meter-001",
+          "value": "meter-001"
+        }
+      },
+      {
+        "name": "granularity",
+        "label": "Granularity",
+        "type": "custom",
+        "query": "1m,5m,15m,1h",
+        "includeAll": false,
+        "multi": false,
+        "current": {
+          "selected": true,
+          "text": "5m",
+          "value": "5m"
+        }
+      }
+    ]
+  },
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": ["15s", "30s", "1m", "5m"],
+    "time_options": ["1h", "3h", "12h", "24h", "7d", "30d"]
+  },
+  "timezone": "browser",
+  "title": "Energy Consumption Trend (Area)",
+  "uid": "energy-consumption-trend-area-v1",
+  "version": 1,
+  "weekStart": ""
+}

@@ -1,0 +1,208 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "id": 1,
+      "type": "gauge",
+      "title": "p95 Current",
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "afew2ixp02p6of"
+      },
+      "gridPos": { "h": 10, "w": 8, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "amp",
+          "min": 0,
+          "max": 40,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 20 },
+              { "color": "red", "value": 30 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": true,
+        "showThresholdMarkers": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "type": "json",
+          "source": "url",
+          "root_selector": "stats",
+          "columns": [
+            { "selector": "current.p95", "text": "p95_current", "type": "number" }
+          ],
+          "url": "https://55ojneksi9.execute-api.ap-northeast-1.amazonaws.com/v1/query/statistics",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "afew2ixp02p6of"
+          },
+          "url_options": {
+            "method": "POST",
+            "body_type": "raw",
+            "body_content_type": "application/json",
+            "data": "{\n  \"query_name\": \"statistics\",\n  \"time_range\": {\n    \"from\": \"${__from:date:iso}\",\n    \"to\": \"${__to:date:iso}\"\n  },\n  \"fields\": [\"current\"],\n  \"granularity\": \"${granularity}\",\n  \"timezone\": \"UTC\",\n  \"limit\": 5000\n}"
+          }
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Avg Voltage",
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "afew2ixp02p6of"
+      },
+      "gridPos": { "h": 10, "w": 8, "x": 8, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "volt",
+          "color": { "mode": "continuous-BlYlRd" }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "type": "json",
+          "source": "url",
+          "root_selector": "stats",
+          "columns": [
+            { "selector": "voltage.avg", "text": "avg_voltage", "type": "number" }
+          ],
+          "url": "https://55ojneksi9.execute-api.ap-northeast-1.amazonaws.com/v1/query/statistics",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "afew2ixp02p6of"
+          },
+          "url_options": {
+            "method": "POST",
+            "body_type": "raw",
+            "body_content_type": "application/json",
+            "data": "{\n  \"query_name\": \"statistics\",\n  \"time_range\": {\n    \"from\": \"${__from:date:iso}\",\n    \"to\": \"${__to:date:iso}\"\n  },\n  \"fields\": [\"voltage\"],\n  \"granularity\": \"${granularity}\",\n  \"timezone\": \"UTC\",\n  \"limit\": 5000\n}"
+          }
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Max kWh",
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "afew2ixp02p6of"
+      },
+      "gridPos": { "h": 10, "w": 8, "x": 16, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kWh",
+          "color": { "mode": "continuous-YlRd" }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "type": "json",
+          "source": "url",
+          "root_selector": "stats",
+          "columns": [
+            { "selector": "kWh.max", "text": "max_kwh", "type": "number" }
+          ],
+          "url": "https://55ojneksi9.execute-api.ap-northeast-1.amazonaws.com/v1/query/statistics",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "afew2ixp02p6of"
+          },
+          "url_options": {
+            "method": "POST",
+            "body_type": "raw",
+            "body_content_type": "application/json",
+            "data": "{\n  \"query_name\": \"statistics\",\n  \"time_range\": {\n    \"from\": \"${__from:date:iso}\",\n    \"to\": \"${__to:date:iso}\"\n  },\n  \"fields\": [\"kWh\"],\n  \"granularity\": \"${granularity}\",\n  \"timezone\": \"UTC\",\n  \"limit\": 5000\n}"
+          }
+        }
+      ]
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["kpi", "percentile", "statistics"],
+  "templating": {
+    "list": [
+      {
+        "name": "granularity",
+        "type": "custom",
+        "label": "Granularity",
+        "query": "1m,5m,15m,1h",
+        "current": {
+          "selected": true,
+          "text": "5m",
+          "value": "5m"
+        },
+        "includeAll": false,
+        "multi": false,
+        "hide": 0
+      }
+    ]
+  },
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Percentile KPI",
+  "uid": "percentile-kpi-v1",
+  "version": 1,
+  "weekStart": ""
+}

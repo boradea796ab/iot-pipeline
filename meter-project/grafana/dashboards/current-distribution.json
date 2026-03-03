@@ -1,0 +1,110 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "id": 1,
+      "type": "histogram",
+      "title": "Current Distribution (Last 24h)",
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "afew2ixp02p6of"
+      },
+      "gridPos": { "h": 14, "w": 24, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "amp",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#22c55e"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "bucketCount": 40,
+        "combine": false,
+        "legend": {
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "type": "json",
+          "source": "url",
+          "root_selector": "series",
+          "columns": [
+            { "selector": "value", "text": "current", "type": "number" }
+          ],
+          "url": "https://55ojneksi9.execute-api.ap-northeast-1.amazonaws.com/v1/query/timeseries",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "afew2ixp02p6of"
+          },
+          "url_options": {
+            "method": "POST",
+            "body_type": "raw",
+            "body_content_type": "application/json",
+            "data": "{\n  \"query_name\": \"timeseries\",\n  \"time_range\": {\n    \"from\": \"${__from:date:iso}\",\n    \"to\": \"${__to:date:iso}\"\n  },\n  \"filters\": {\n    \"meter_ids\": [\"${meter_id}\"]\n  },\n  \"fields\": [\"current\"],\n  \"granularity\": \"1m\",\n  \"timezone\": \"UTC\",\n  \"limit\": 5000\n}"
+          }
+        }
+      ]
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["current", "histogram", "distribution"],
+  "templating": {
+    "list": [
+      {
+        "name": "meter_id",
+        "type": "custom",
+        "label": "Meter",
+        "query": "meter-001,meter-002,meter-003,meter-004,meter-005,meter-006,meter-007,meter-008,meter-009,meter-010",
+        "current": {
+          "selected": true,
+          "text": "meter-001",
+          "value": "meter-001"
+        },
+        "includeAll": false,
+        "multi": false,
+        "hide": 0
+      }
+    ]
+  },
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Current Distribution",
+  "uid": "current-distribution-v1",
+  "version": 1,
+  "weekStart": ""
+}

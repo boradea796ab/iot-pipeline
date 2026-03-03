@@ -1,0 +1,143 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 2,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Voltage Quality Band (210V - 240V)",
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "afew2ixp02p6of"
+      },
+      "gridPos": { "h": 14, "w": 24, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "volt",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 210 },
+              { "color": "orange", "value": 240 }
+            ]
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 22,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "spanNulls": true,
+            "thresholdsStyle": {
+              "mode": "line+area"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": ["lastNotNull", "mean", "max", "min"]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "timeseries",
+          "type": "json",
+          "source": "url",
+          "root_selector": "series",
+          "columns": [
+            { "selector": "timestamp", "text": "Time", "type": "timestamp" },
+            { "selector": "value", "text": "Voltage", "type": "number" }
+          ],
+          "url": "https://55ojneksi9.execute-api.ap-northeast-1.amazonaws.com/v1/query/timeseries",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "afew2ixp02p6of"
+          },
+          "url_options": {
+            "method": "POST",
+            "body_type": "raw",
+            "body_content_type": "application/json",
+            "data": "{\n  \"query_name\": \"timeseries\",\n  \"mode\": \"raw\",\n  \"time_range\": {\n    \"from\": \"${__from:date:iso}\",\n    \"to\": \"${__to:date:iso}\"\n  },\n  \"filters\": {\n    \"meter_ids\": [\"${meter_id}\"]\n  },\n  \"fields\": [\"voltage\"],\n  \"granularity\": \"${granularity}\",\n  \"timezone\": \"UTC\",\n  \"limit\": 5000\n}"
+          }
+        }
+      ]
+    }
+  ],
+  "refresh": "15s",
+  "schemaVersion": 39,
+  "tags": ["voltage", "quality", "thresholds"],
+  "templating": {
+    "list": [
+      {
+        "name": "meter_id",
+        "type": "custom",
+        "label": "Meter",
+        "query": "meter-001,meter-002,meter-003,meter-004,meter-005,meter-006,meter-007,meter-008,meter-009,meter-010",
+        "current": {
+          "selected": true,
+          "text": "meter-001",
+          "value": "meter-001"
+        },
+        "includeAll": false,
+        "multi": false,
+        "hide": 0
+      },
+      {
+        "name": "granularity",
+        "type": "custom",
+        "label": "Granularity",
+        "query": "1m,5m,15m,1h",
+        "current": {
+          "selected": true,
+          "text": "1m",
+          "value": "1m"
+        },
+        "includeAll": false,
+        "multi": false,
+        "hide": 0
+      }
+    ]
+  },
+  "time": {
+    "from": "now-3h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Voltage Quality Band",
+  "uid": "voltage-quality-band-v1",
+  "version": 1,
+  "weekStart": ""
+}

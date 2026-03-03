@@ -1,160 +1,205 @@
-# Smart Meter IoT Platform - Architecture and Design Decisions
+# Smart Meter IoT Ingestion Pipeline
 
-This document focuses on why this architecture was chosen, how components interact under load, and how the system is expected to scale.
+A serverless, streaming IoT platform built on AWS for smart-meter telemetry ingestion, real-time monitoring, and historical analytics.
 
-Dashboard-level documentation is split into:
-- `DASHBOARD_SHOWCASE.md`
+This project demonstrates a production-style ingestion architecture that handles high-frequency device events while keeping query performance and cost under control through a hot/cold time-series model.
 
-## 1. Problem Framing
-The target system ingests high-frequency smart-meter telemetry and supports two very different read patterns:
-1. near-real-time operational views
-2. longer-range analytical/statistical views
+## 1. Project Purpose
 
-A single-path architecture usually fails one of these requirements. Either it becomes expensive for historical queries, or too slow for live dashboards. The implementation therefore uses a split read strategy with stream decoupling and a curated query API.
+The primary goal of this project is to ingest millions of smart-meter readings per day in a scalable, resilient way.
 
-## 2. Why This Pipeline
-```mermaid
-flowchart LR
-  SIM[IoT Simulator] --> IOT[AWS IoT Core]
-  IOT --> RULE[IoT Rule]
-  RULE --> KDS[Kinesis Data Stream]
-  KDS --> ING[Lambda: kinesis-to-influx]
-  ING --> INFLUX[(Timestream for InfluxDB)]
+Core purpose:
+1. build a high-throughput asynchronous ingestion path that can absorb bursty device traffic
+2. avoid fragile direct producer-to-database writes by decoupling ingest and persistence with streaming
+3. support real-time operations and historical analytics on top of that ingestion foundation
 
-  GRAFANA[Amazon Managed Grafana] --> APIGW[API Gateway]
-  APIGW --> QUERY[Lambda: analytics-query]
-  QUERY --> INFLUX
+Why async architecture was chosen:
+1. direct writes from device paths to DB couple producer rate to database latency
+2. Kinesis provides a durable ingestion buffer and backpressure boundary
+3. Lambda consumers scale independently and process batches before writing to InfluxDB
+4. this keeps ingestion reliable under load while still enabling controlled downstream query behavior
 
-  SSM[SSM Parameter Store] --> ING
-  SSM --> QUERY
-  CW[CloudWatch] <---> ING
-  CW <---> QUERY
-```
+Smart-meter systems still need both:
+1. live operational visibility for recent telemetry
+2. long-range analytical visibility for trends, KPIs, and statistics
 
-### AWS IoT Core + IoT Rule
-IoT Core is used as the MQTT/TLS ingestion edge because it natively handles certificate-based device auth and topic routing. This keeps device connectivity concerns out of custom code.
+Those read workloads have different access patterns, so the design also uses hot/cold storage routing for query efficiency.
 
-### Kinesis Data Stream
-Kinesis is used as a durable ingestion buffer between producer and storage write path. This decouples bursty ingress from downstream processing and prevents direct write-pressure on the database.
+## 2. Architecture Overview
 
-Without Kinesis, direct producer-to-database writes make backpressure, retries, and burst handling much harder.
+End-to-end flow:
+1. IoT simulator/devices publish telemetry over MQTT/TLS
+2. AWS IoT Core receives messages and routes them via IoT Rules
+3. Kinesis Data Stream buffers and decouples ingestion throughput
+4. Lambda consumer transforms telemetry to Influx Line Protocol
+5. Amazon Timestream for InfluxDB stores time-series data
+6. Analytics API (API Gateway + Lambda) serves controlled query access
+7. Grafana visualizes real-time, historical, and infrastructure views
 
-### Lambda for Ingestion (instead of direct DB write)
-The ingestion Lambda performs controlled transformation (JSON -> line protocol), centralized validation, and retry behavior in one managed runtime. It also allows tuning batch and concurrency independently of producer rate.
+This architecture keeps producer traffic, ingestion processing, and read/query paths independently controllable.
 
-Direct IoT Rule -> DB writes are simpler but reduce transformation control and make resilience tuning less explicit.
+Architecture diagram:
 
-### InfluxDB (Timestream for InfluxDB) vs SQL/NoSQL
-The workload is time-series first: frequent appends, time-window filters, bucketed aggregations, rollups, and dashboard-focused querying.
+![Smart Meter IoT Architecture](image.png)
 
-InfluxDB is a better fit than general SQL/NoSQL for this shape because:
-- native time-indexed query model
-- Flux operations for range and aggregate windows
-- efficient rollup/downsample workflows
+## 3. Core Components
 
-Traditional SQL can do this, but requires heavier schema/index tuning and often higher operational overhead for equivalent query patterns.
+### AWS IoT Core
 
-### Analytics Query Lambda Backend
-A curated API layer was added in front of Influx reads to enforce request contracts and guardrails:
-- bounded lookback
-- bounded row limits
-- bounded filter cardinality
-- named query templates
+IoT Core acts as the secure ingestion edge for MQTT traffic, including X.509 certificate-based device identity. IoT Rules route telemetry from device topics into the streaming layer without introducing custom broker logic.
 
-This gives governance and protects storage from uncontrolled ad hoc query patterns.
+### Kinesis Data Streams
 
-## 3. Hot/Cold Data Strategy
-The design intentionally separates short-range operational reads from long-range analytical reads.
+Kinesis provides buffering between producers and storage writes. This absorbs bursts, protects downstream systems from ingestion spikes, and gives controlled fan-in behavior for Lambda processing.
 
-### Hot tier (raw)
-- high granularity
-- short retention target (7 days)
-- used for near-real-time behavior
+### Ingestion Lambda
 
-### Cold tier (downsampled)
-- 15-minute rollups (`mean`, `min`, `max`, `count`)
-- long retention target (1 year)
-- used for historical trend/statistical reporting
+The ingestion Lambda consumes Kinesis records, parses JSON payloads, and writes structured time-series points to InfluxDB. Failures are surfaced intentionally so retries occur through standard event-source semantics.
 
-### Why this split matters
-Keeping all data raw forever inflates storage and query cost. Keeping only downsampled data reduces live fidelity. Hot/cold preserves live precision while keeping historical access economical.
+### Timestream for InfluxDB
 
-### Query routing behavior
-The analytics Lambda routes based on time range and granularity:
-- older ranges -> cold
-- recent + high granularity (`1m` / `5m`) -> hot
-- mixed windows -> split across both
+InfluxDB is used as the primary time-series store because the workload is time-window heavy and metric-centric. It supports efficient range queries, aggregate windows, and downsampled history.
 
-## 4. Terraform Practices Used
-The IaC structure is modular and environment-aware, with domain modules for network, ingestion, streaming, time-series storage, query API, and observability.
+### Analytics Query Service
 
-### Practices implemented
-- module composition by domain (`terraform/modules/*`)
-- shared + per-environment var files (`envs/common.tfvars`, `envs/{dev,stage,prod}`)
-- remote state bootstrap (`terraform/bootstrap/state`)
-- provider/version pinning
-- lint/security hooks via pre-commit + tflint + tfsec
-- secret indirection through SSM parameters
+A dedicated query API is placed in front of Influx reads to enforce guardrails and route requests intelligently. This prevents uncontrolled direct database querying from dashboard clients.
 
-### Security posture in IaC
-- API Gateway routes use `AWS_IAM` auth
-- ingestion and query token paths are separated
-- Lambda runs in VPC with SG-based DB access
+### Managed Grafana
 
-## 5. Scaling Considerations
-Scaling is determined by event rate, payload size, and query mix.
+Grafana provides operational and analytical dashboards. Dashboard groups are split by use case so near-live views and historical KPI views are optimized independently.
 
-### Ingestion tiers (approximate)
-- 1 million/day -> ~11.6 events/sec
-- 10 million/day -> ~115.7 events/sec
-- 100 million/day -> ~1157.4 events/sec
+## 4. Telemetry Model and Pipeline Behavior
 
-### Kinesis implications
-Kinesis shard limits are roughly:
-- 1000 records/sec write per shard
-- 1 MB/sec write per shard
+Each meter event carries meter identity, timestamp, and electrical measurements such as energy, voltage, and current.
 
-At 100M/day, record-rate alone exceeds one shard, so multiple shards are required. Payload size may increase shard count further.
+Pipeline behavior:
+1. device payloads are accepted by IoT Core
+2. IoT Rule forwards matched topics to Kinesis
+3. Lambda converts each record into time-series line protocol
+4. points are written to Influx measurement storage
+5. query service reads from hot and/or cold bucket based on request profile
 
-### Lambda ingestion path
-Key knobs:
-- event source batch size/window
-- reserved concurrency
-- retry and DLQ strategy
+The pipeline is intentionally simple in control flow, making it easy to reason about ingestion correctness and failure domains.
 
-Current tuning reduces batching window to improve freshness, which is good for live views but can increase invoke frequency/cost. This is a deliberate latency-over-cost tradeoff for operational dashboards.
+## 5. Hot/Cold Time-Series Strategy
 
-### Influx query/read path
-As volume grows, safeguards become mandatory:
-- tight lookback limits
-- capped result size
-- controlled meter filter cardinality
-- coarse granularity for historical windows
+### Hot tier
+- recent raw telemetry
+- high-granularity operational reads
+- optimized for near-real-time monitoring
 
-The current API already implements these guardrails.
+### Cold tier
+- downsampled historical telemetry
+- long-window analytics and reporting
+- optimized for cost and historical query stability
 
-## 6. Observability and Operational Validation
-CloudWatch is used for runtime visibility of ingestion and query paths.
+### Routing behavior
 
-Query API emits structured logs and metrics including:
-- `QuerySuccess`
-- `QueryError`
-- `QueryTimeout`
-- `QueryDurationMs`
-- `RowsReturned`
+The analytics service chooses data source based on time range and granularity. Recent high-detail requests are routed to hot storage, older/coarser requests are routed to cold storage, and overlapping windows can be split and merged.
 
-These are enough to build basic operational dashboards and alarms. Full SLO evidence (freshness/latency percentile compliance over time) should be measured continuously as a follow-up hardening step.
+## 6. Networking and Security Model
 
-## 7. Current State and Practical Notes
-- The core ingestion and query paths are implemented and testable.
-- Hot-path dashboard queries are working.
-- Cold-path reliability depends on downsampling task lifecycle; this should be treated as an explicit environment bootstrap step.
-- Dashboard screenshots and panel-level explanations are documented separately in `DASHBOARD_SHOWCASE.md`.
+### Network design
 
-## 8. Key Repository Paths
-- Infra: `terraform/`
-- Ingestion Lambda: `terraform/lambda_source/kinesis2timestream.py`
-- Query Lambda: `terraform/lambda_analytics_source/analytics_query.py`
-- Downsampling task script: `terraform/scripts/create_influx_downsampling_task.sh`
-- Simulator: `iot-simulator/`
-- Dashboards: `grafana/dashboards/`
+The platform uses a VPC with private subnet execution paths for data services and Lambda workloads. Security groups limit database access to trusted workload boundaries.
+
+### Security controls
+
+1. MQTT ingress secured with TLS and device certificates
+2. secrets and endpoints managed via SSM Parameter Store
+3. IAM-authenticated API routes for analytics access
+4. private network boundaries around ingestion/query compute and storage
+
+This model minimizes exposed surfaces while keeping operations manageable.
+
+## 7. Observability and Operations
+
+Operational visibility is built around CloudWatch metrics, alarms, and structured Lambda logs.
+
+The analytics service emits query success/error/timeout and latency/row-count signals to support:
+1. service health monitoring
+2. query behavior analysis
+3. incident troubleshooting
+
+Grafana dashboards complement this with business-facing and engineering-facing views across real-time telemetry, historical trends, and infrastructure health.
+
+## 8. Deployment Summary
+
+Terraform provisions the full stack, including:
+1. IoT Core device and rule resources
+2. Kinesis streaming resources
+3. Lambda ingestion and query services
+4. Timestream for InfluxDB resources
+5. VPC networking and security groups
+6. API Gateway endpoints and IAM-auth routes
+7. Grafana workspace and observability integrations
+
+Environment separation is managed through environment-specific variable files so dev, stage, and prod can evolve safely.
+
+## 9. Scaling Profile (Million Readings/Day)
+
+Approximate ingest rate by daily volume:
+1. 1M/day -> ~11.6 readings/sec
+2. 10M/day -> ~115.7 readings/sec
+3. 50M/day -> ~578.7 readings/sec
+4. 100M/day -> ~1157.4 readings/sec
+5. 250M/day -> ~2893.5 readings/sec
+
+Where scaling pressure appears first:
+1. Kinesis shard capacity and partition distribution
+2. Lambda event-source throughput (batch size, concurrency, retries)
+3. Influx write throughput and query contention during heavy dashboard refresh windows
+
+Kinesis scaling notes:
+- Stream is provisioned mode, so shard count must match expected peak throughput.
+- As a practical rule, validate both records/sec and bytes/sec, then add headroom for burst traffic.
+- For higher-volume tiers (for example ~100M/day+), shard count and producer partition behavior should be reviewed before load tests.
+
+Lambda scaling notes:
+- Event source mapping currently uses batch size 100 and 1-second batching window.
+- Effective throughput depends on records per batch, average write latency to Influx, and retry rate on failures.
+- For sustained high ingest, tune reserved concurrency, batch size/window, and error-handling strategy together.
+
+Operational scaling metrics to watch:
+1. Kinesis: IncomingRecords, IncomingBytes, GetRecords iterator age
+2. Lambda: ConcurrentExecutions, Duration, Errors, Throttles
+3. Analytics API: query timeout/error rates and p95 duration
+4. Influx path: write latency and query latency during dashboard peaks
+
+## 10. Current Outcome
+
+This project successfully implements:
+1. secure IoT telemetry ingestion over MQTT
+2. decoupled stream-based ingestion processing
+3. private time-series storage path in InfluxDB
+4. controlled API-based analytics access
+5. real-time plus historical dashboard-ready query capabilities
+
+The resulting system reflects real-world ingestion architecture patterns used in utility and smart-grid telemetry platforms.
+
+## 11. Dashboards and Project Story
+
+Dashboard documentation lives in `DASHBOARDS.md`.
+
+The dashboard suite is part of the project writeup, not just visualization extras. It demonstrates:
+1. real-time operational monitoring behavior from the hot path
+2. historical/statistical behavior from the cold path
+3. infrastructure-level health and ingestion/query bottlenecks
+
+In short, dashboards are the proof layer showing that the ingestion architecture is working as designed.
+
+## 12. Known Gaps and Next Evolution
+
+Highest-value next improvements:
+1. fully automate cold-tier retention/downsampling lifecycle in Terraform
+2. complete Grafana datasource/token automation end-to-end
+3. tighten IoT policy scope and cert-rotation operational workflow
+4. implement dead-letter queue retry and failure-data handling pipeline (not implemented yet; failed ingestion records are not automatically replayed today)
+5. add deeper query tracing and optional caching for dashboard-heavy workloads
+6. further harden data-quality validation in ingestion and analytics paths
+
+## 13. Conclusion
+
+The Smart Meter IoT Ingestion Pipeline achieves its main goal: reliable high-frequency telemetry ingestion with a practical balance between live operational visibility and scalable historical analytics.
+
+It is a strong end-to-end foundation that can be extended toward full production hardening with focused improvements in automation, governance, and performance tuning.

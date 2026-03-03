@@ -40,7 +40,7 @@ This architecture keeps producer traffic, ingestion processing, and read/query p
 
 Architecture diagram:
 
-![Smart Meter IoT Architecture](image.png)
+![Smart Meter IoT Architecture](architecture.png)
 
 ## 3. Core Components
 
